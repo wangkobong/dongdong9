@@ -2,6 +2,8 @@
 import SwiftUI
 
 struct MainTabView: View {
+    @EnvironmentObject var authViewModel: AuthViewModel
+
     var body: some View {
         TabView {
             HomeView()
@@ -17,6 +19,7 @@ struct MainTabView: View {
                 }
 
             SettingsView()
+                .environmentObject(authViewModel)
                 .tabItem {
                     Image(systemName: "gearshape.fill")
                     Text("설정")

@@ -1,0 +1,57 @@
+# Xcode
+.DS_Store
+*.xcodeproj/*.pbxuser
+*.xcodeproj/*.xcworkspace/xcuserdata/
+*.xcodeproj/*.xcscmblueprint
+*.xcodeproj/*.xccheckout
+*.xcworkspace/
+*.playground/
+xcuserdata/
+DerivedData/
+.build/
+
+# Swift Package Manager
+.swiftpm/xcode/package.xcworkspace/
+.swiftpm/xcode/xcuserdata/
+
+# CocoaPods (if used)
+Pods/
+.symlinks/
+.appledoc/
+
+# Carthage (if used)
+Carthage/
+
+# Fastlane (if used)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+
+# Generated files
+*.gcno
+*.gcda
+*.lo
+*.o
+*.d
+*.swiftmodule
+*.swiftdoc
+*.swiftsourceinfo
+*.swo
+*.swp
+*.pyc
+*.fseventsd
+*.hmap
+*.ipa
+*.dSYM
+*.xcarchive
+
+# Sensitive files (as discussed)
+GoogleService-Info.plist
+Secrets.xcconfig 
+
+# Other
+.idea/
+.vscode/
+.env
+.env.*
+dongdong9/Secrets.xcconfig

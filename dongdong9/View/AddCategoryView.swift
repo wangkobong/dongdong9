@@ -1,0 +1,29 @@
+
+import SwiftUI
+
+struct AddCategoryView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @EnvironmentObject var budgetViewModel: BudgetViewModel
+    
+    @State private var categoryName: String = ""
+    var parentCategory: ExpenseCategory? // 상위 카테고리를 받을 변수
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("카테고리 정보")) {
+                    TextField("카테고리 이름", text: $categoryName)
+                }
+            }
+            .navigationTitle(parentCategory == nil ? "새 대카테고리" : "새 하위 카테고리")
+            .navigationBarItems(leading: Button("취소") {
+                presentationMode.wrappedValue.dismiss()
+            }, trailing: Button("저장") {
+                if !categoryName.isEmpty {
+                    budgetViewModel.addCategory(name: categoryName, parent: parentCategory)
+                    presentationMode.wrappedValue.dismiss()
+                }
+            })
+        }
+    }
+}

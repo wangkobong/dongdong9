@@ -2,7 +2,9 @@
 import SwiftUI
 
 struct LoginView: View {
-    @Binding var isLoggedIn: Bool
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
 
     var body: some View {
         VStack(spacing: 20) {
@@ -12,8 +14,7 @@ struct LoginView: View {
                 .padding(.bottom, 50)
 
             Button(action: {
-                // TODO: Implement Google Login
-                isLoggedIn = true
+                authViewModel.signInWithGoogle()
             }) {
                 HStack {
                     Image(systemName: "g.circle.fill")
@@ -30,7 +31,6 @@ struct LoginView: View {
 
             Button(action: {
                 // TODO: Implement Apple Login
-                isLoggedIn = true
             }) {
                 HStack {
                     Image(systemName: "applelogo")
@@ -46,5 +46,11 @@ struct LoginView: View {
             }
         }
         .padding()
+        .alert("로그인 오류", isPresented: $showingAlert) {
+            Button("확인") { }
+        } message: {
+            Text(alertMessage)
+        }
+        .loadingSpinner(isLoading: $authViewModel.isLoading)
     }
 }

@@ -2,16 +2,48 @@
 import SwiftUI
 
 struct HomeView: View {
+    @EnvironmentObject var budgetViewModel: BudgetViewModel
+
     var body: some View {
         NavigationView {
-            VStack {
-                Text("월별 예산 현황")
-                    .font(.largeTitle)
-                    .padding()
-                // TODO: 여기에 월별 예산 현황을 보여주는 UI를 추가합니다.
+            VStack(alignment: .leading, spacing: 25) {
+                // 총수입
+                VStack(alignment: .leading) {
+                    Text("총수입")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                    Text(budgetViewModel.grossBudget, format: .currency(code: "KRW"))
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+
+                // 고정 지출
+                VStack(alignment: .leading) {
+                    Text("고정 지출")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                    Text(budgetViewModel.totalFixedExpenses, format: .currency(code: "KRW"))
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.red)
+                }
+
+                Divider()
+
+                // 사용 가능 예산
+                VStack(alignment: .leading) {
+                    Text("사용 가능 예산")
+                        .font(.title)
+                        .fontWeight(.bold)
+                    Text(budgetViewModel.netBudget, format: .currency(code: "KRW"))
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundColor(.blue)
+                }
+                
                 Spacer()
             }
-            .navigationTitle("홈")
+            .padding()
+            .navigationTitle("이번 달 예산 현황")
         }
     }
 }
