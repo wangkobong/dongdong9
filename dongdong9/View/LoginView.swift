@@ -30,7 +30,14 @@ struct LoginView: View {
             }
 
             Button(action: {
-                // TODO: Implement Apple Login
+                Task {
+                        do {
+                            try await authViewModel.signInWithApple()
+                        } catch {
+                            print("Apple 로그인 오류: \(error.localizedDescription)")
+                            // 필요 시 사용자에게 오류를 표시하는 로직 추가
+                        }
+                    }
             }) {
                 HStack {
                     Image(systemName: "applelogo")
@@ -52,5 +59,11 @@ struct LoginView: View {
             Text(alertMessage)
         }
         .loadingSpinner(isLoading: $authViewModel.isLoading)
+        .onChange(of: authViewModel.errorMessage) { errorMessage in
+            if let errorMessage = errorMessage {
+                self.alertMessage = errorMessage
+                self.showingAlert = true
+            }
+        }
     }
 }
