@@ -5,16 +5,19 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if authViewModel.isAuthCheckComplete {
+            if authViewModel.isAuthCheckComplete && authViewModel.isBudgetStatusChecked {
                 if authViewModel.userSession != nil {
-                    // TODO: 여기에 InvitationView 또는 MainTabView를 보여주는 로직 추가
-                    MainTabView()
+                    if authViewModel.hasBudget {
+                        MainTabView()
+                    } else {
+                        BudgetChoiceView()
+                    }
                 } else {
                     LoginView()
                 }
             } else {
-                // 인증 상태 확인 중 로딩 인디케이터 표시
-                ProgressView("인증 확인 중...")
+                // 인증 및 가계부 상태 확인 중 로딩 인디케이터 표시
+                ProgressView("데이터 로딩 중...")
             }
         }
     }

@@ -29,3 +29,10 @@ struct AddFixedExpenseView: View {
         }
     }
 }
+
+struct AddFixedExpenseView_Previews: PreviewProvider {
+    static var previews: some View {
+        AddFixedExpenseView()
+            .environmentObject(BudgetViewModel())
+    }
+}

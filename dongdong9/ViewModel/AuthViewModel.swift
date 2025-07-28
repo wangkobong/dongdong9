@@ -3,6 +3,7 @@ import FirebaseAuth
 import Firebase
 import GoogleSignIn
 import AuthenticationServices
+import FirebaseFirestore
 
 struct OAuthUserData {
     var oauthId: String = ""
@@ -17,15 +18,41 @@ class AuthViewModel: ObservableObject {
     @Published var givenName: String?
     @Published var isLoading = false
     @Published var isAuthCheckComplete = false
+    @Published var hasBudget = false
+    @Published var isBudgetStatusChecked = false // 새 속성
     private let authRepository: AuthRepository
 
     init(authRepository: AuthRepository = AuthRepository()) {
         self.authRepository = authRepository
         Auth.auth().addStateDidChangeListener { [weak self] _, user in
             self?.userSession = user
+            if let user = user {
+                self?.checkBudgetStatus(userId: user.uid)
+            } else {
+                // 로그아웃 상태일 때도 상태 확인 완료로 처리
+                self?.isBudgetStatusChecked = true
+            }
             if let self = self, !self.isAuthCheckComplete {
                 self.isAuthCheckComplete = true
             }
+        }
+    }
+
+    func checkBudgetStatus(userId: String) {
+        let db = Firestore.firestore()
+        db.collection("budgets").whereField("userIds", arrayContains: userId).getDocuments { [weak self] (querySnapshot, error) in
+            guard let self = self else { return }
+            if let error = error {
+                print("Error getting documents: \(error)")
+                self.hasBudget = false
+            } else {
+                if let documents = querySnapshot?.documents, !documents.isEmpty {
+                    self.hasBudget = true
+                } else {
+                    self.hasBudget = false
+                }
+            }
+            self.isBudgetStatusChecked = true // 가계부 상태 확인 완료
         }
     }
 
@@ -80,10 +107,37 @@ class AuthViewModel: ObservableObject {
                     self.isLoading = false
                     return
                 }
-
-                print("🎉 Firebase Google 로그인 성공! UID: \(firebaseUser.uid)")
-                self.checkUserInfo()
+                
+                print("🎉 Firebase Google 로그인 성공!")
+                    print("UID: \(firebaseUser.uid)")
+                    print("Email: \(firebaseUser.email ?? "없음")")
+                    print("Display Name: \(firebaseUser.displayName ?? "없음")")
+                    print("Photo URL: \(firebaseUser.photoURL?.absoluteString ?? "없음")")
+                    print("Is Email Verified: \(firebaseUser.isEmailVerified)")
+                    print("Provider Data: \(firebaseUser.providerData.map { $0.providerID })")
+                self.saveUserToFirestore(user: firebaseUser)
                 self.isLoading = false
+            }
+        }
+    }
+
+    private func saveUserToFirestore(user: User) {
+        let db = Firestore.firestore()
+        let userRef = db.collection("users").document(user.uid)
+
+        let userData: [String: Any] = [
+            "uid": user.uid,
+            "email": user.email ?? "",
+            "displayName": user.displayName ?? "",
+            "photoURL": user.photoURL?.absoluteString ?? "",
+            "createdAt": FieldValue.serverTimestamp()
+        ]
+
+        userRef.setData(userData, merge: true) { error in
+            if let error = error {
+                print("Error saving user to Firestore: \(error.localizedDescription)")
+            } else {
+                print("User data successfully saved/updated in Firestore.")
             }
         }
     }
@@ -137,11 +191,9 @@ class AuthViewModel: ObservableObject {
                      
                      Task {
                          do {
-                             try await Auth.auth().signIn(with: credential)
-                             
                              let authResult = try await Auth.auth().signIn(with: credential)
                              let user = authResult.user
-                             
+                             self.saveUserToFirestore(user: user)
                              continuation.resume(returning: ())
                          } catch let signInError as NSError {
                              print("Firebase sign in error: \(signInError.localizedDescription)")
@@ -171,23 +223,6 @@ class AuthViewModel: ObservableObject {
         } catch let signOutError as NSError {
             print("Error signing out: %@", signOutError)
             self.errorMessage = "로그아웃에 실패했습니다."
-        }
-    }
-    
-    func checkUserInfo() {
-        if GIDSignIn.sharedInstance.currentUser != nil {//현재 사용자가 로그인되어 있는지 확인
-            let user = GIDSignIn.sharedInstance.currentUser
-            guard let user = user else {
-                return
-            }
-            oauthUserData.givenName = user.profile?.givenName ?? "" //사용자의 이름
-            oauthUserData.oauthId = user.userID ?? "" //사용자의 고유 ID
-            oauthUserData.idToken = user.idToken?.tokenString ?? ""//사용자의 ID 토큰
-            
-//            print("결과: \(oauthUserData)")
-
-        } else {
-            self.errorMessage = "error: Not Logged In"
         }
     }
     

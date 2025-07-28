@@ -27,3 +27,10 @@ struct AddCategoryView: View {
         }
     }
 }
+
+struct AddCategoryView_Previews: PreviewProvider {
+    static var previews: some View {
+        AddCategoryView()
+            .environmentObject(BudgetViewModel())
+    }
+}

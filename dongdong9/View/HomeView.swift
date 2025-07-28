@@ -12,9 +12,10 @@ struct HomeView: View {
                     Text("총수입")
                         .font(.headline)
                         .foregroundColor(.gray)
-                    Text(budgetViewModel.grossBudget, format: .currency(code: "KRW"))
+                    TextField("총수입 입력", value: $budgetViewModel.totalIncome, format: .currency(code: "KRW"))
                         .font(.title2)
                         .fontWeight(.semibold)
+                        .keyboardType(.decimalPad)
                 }
 
                 // 고정 지출
@@ -45,5 +46,12 @@ struct HomeView: View {
             .padding()
             .navigationTitle("이번 달 예산 현황")
         }
+    }
+}
+
+struct HomeView_Previews: PreviewProvider {
+    static var previews: some View {
+        HomeView()
+            .environmentObject(BudgetViewModel())
     }
 }

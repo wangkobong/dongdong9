@@ -1,28 +1,47 @@
 
 import Foundation
 import Combine
+import Firebase
 
 class BudgetViewModel: ObservableObject {
     // MARK: - Published Properties
-    @Published var husbandIncome: Double = 0
-    @Published var wifeIncome: Double = 0
+    @Published var totalIncome: Double = 0
     @Published var categories: [ExpenseCategory] = []
     @Published var fixedExpenses: [FixedExpense] = []
+    @Published var budgetId: String? // 생성된 가계부 ID
+
+    private var db = Firestore.firestore()
 
     // MARK: - Computed Properties
-    var grossBudget: Double {
-        husbandIncome + wifeIncome
-    }
-    
     var totalFixedExpenses: Double {
         fixedExpenses.map { $0.amount }.reduce(0, +)
     }
 
     var netBudget: Double {
-        grossBudget - totalFixedExpenses
+        totalIncome - totalFixedExpenses
     }
 
     // MARK: - Methods
+    func createBudget(userId: String, authViewModel: AuthViewModel) {
+        let budgetData: [String: Any] = [
+            "userIds": [userId],
+            "createdAt": Timestamp(date: Date())
+        ]
+
+        var ref: DocumentReference? = nil
+        ref = db.collection("budgets").addDocument(data: budgetData) { [weak self] error in
+            if let error = error {
+                print("Error adding document: \(error)")
+            } else {
+                if let documentID = ref?.documentID {
+                    self?.budgetId = documentID
+                    authViewModel.hasBudget = true
+                    print("Budget document added with ID: \(documentID)")
+                }
+            }
+        }
+    }
+
     func addCategory(name: String, parent: ExpenseCategory? = nil) {
         let newCategory = ExpenseCategory(name: name)
         if let parent = parent,
@@ -40,5 +59,12 @@ class BudgetViewModel: ObservableObject {
     
     func removeFixedExpense(at offsets: IndexSet) {
         fixedExpenses.remove(atOffsets: offsets)
+    }
+
+    func joinBudgetWithInviteCode(inviteCode: String, userId: String, authViewModel: AuthViewModel) {
+        // TODO: 초대 코드로 가계부에 참여하는 Firestore 로직 구현
+        print("Joining budget with invite code: \(inviteCode)")
+        // 임시로 가계부가 있는 것으로 처리
+        authViewModel.hasBudget = true
     }
 }

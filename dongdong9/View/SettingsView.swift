@@ -9,20 +9,16 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("소득 설정")) {
+                Section(header: Text("설정")) {
                     HStack {
-                        Text("남편 소득")
+                        Text("소득설정")
                         Spacer()
-                        TextField("금액 입력", value: $budgetViewModel.husbandIncome, format: .currency(code: "KRW"))
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
+
                     }
                     HStack {
-                        Text("아내 소득")
+                        Text("초대 코드")
                         Spacer()
-                        TextField("금액 입력", value: $budgetViewModel.wifeIncome, format: .currency(code: "KRW"))
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
+
                     }
                 }
                 
@@ -48,5 +44,13 @@ struct SettingsView: View {
             }
         }
         .loadingSpinner(isLoading: $authViewModel.isLoading)
+    }
+}
+
+struct SettingsView_Previews: PreviewProvider {
+    static var previews: some View {
+        SettingsView()
+            .environmentObject(BudgetViewModel())
+            .environmentObject(AuthViewModel())
     }
 }

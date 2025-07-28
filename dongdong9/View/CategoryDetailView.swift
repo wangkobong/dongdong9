@@ -31,3 +31,17 @@ struct CategoryDetailView: View {
         category.subcategories.remove(atOffsets: offsets)
     }
 }
+
+struct CategoryDetailView_Previews: PreviewProvider {
+    static var previews: some View {
+        let sampleCategory = ExpenseCategory(name: "식비", subcategories: [
+            ExpenseCategory(name: "점심"),
+            ExpenseCategory(name: "저녁")
+        ])
+        
+        NavigationView {
+            CategoryDetailView(category: sampleCategory)
+                .environmentObject(BudgetViewModel())
+        }
+    }
+}
