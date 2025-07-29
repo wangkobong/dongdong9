@@ -19,7 +19,8 @@ class AuthViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isAuthCheckComplete = false
     @Published var hasBudget = false
-    @Published var isBudgetStatusChecked = false // 새 속성
+    @Published var isBudgetStatusChecked = false
+    @Published var shouldReauthenticate: Bool = false // 재인증 필요 여부
     private let authRepository: AuthRepository
 
     init(authRepository: AuthRepository = AuthRepository()) {
@@ -29,13 +30,16 @@ class AuthViewModel: ObservableObject {
             if let user = user {
                 self?.checkBudgetStatus(userId: user.uid)
             } else {
-                // 로그아웃 상태일 때도 상태 확인 완료로 처리
                 self?.isBudgetStatusChecked = true
             }
             if let self = self, !self.isAuthCheckComplete {
                 self.isAuthCheckComplete = true
             }
         }
+    }
+
+    func resetReauthenticationFlag() {
+        self.shouldReauthenticate = false
     }
 
     func checkBudgetStatus(userId: String) {
@@ -223,6 +227,63 @@ class AuthViewModel: ObservableObject {
         } catch let signOutError as NSError {
             print("Error signing out: %@", signOutError)
             self.errorMessage = "로그아웃에 실패했습니다."
+        }
+    }
+
+    @MainActor
+    func deleteAccount() async {
+        guard let user = Auth.auth().currentUser else {
+            self.errorMessage = "로그인된 사용자가 없습니다."
+            return
+        }
+
+        self.isLoading = true
+        defer { self.isLoading = false } // 함수 종료 시 항상 실행
+
+        let userId = user.uid
+        let db = Firestore.firestore()
+
+        do {
+            // 1. Firestore users 컬렉션에서 사용자 문서 삭제
+            try await db.collection("users").document(userId).delete()
+            print("Firestore user document deleted.")
+
+            // 2. 사용자가 속한 모든 budgets 문서에서 userId 제거
+            let budgetQuerySnapshot = try await db.collection("budgets").whereField("userIds", arrayContains: userId).getDocuments()
+            for document in budgetQuerySnapshot.documents {
+                let budgetRef = db.collection("budgets").document(document.documentID)
+                var userIds = document.data()["userIds"] as? [String] ?? []
+                userIds.removeAll(where: { $0 == userId })
+
+                if userIds.isEmpty {
+                    // 가계부에 더 이상 사용자가 없으면 가계부 문서 자체를 삭제
+                    try await budgetRef.delete()
+                    print("Budget document \(document.documentID) deleted as no users remain.")
+                } else {
+                    // 사용자가 남아있으면 userIds 배열 업데이트
+                    try await budgetRef.updateData(["userIds": userIds])
+                    print("User \(userId) removed from budget \(document.documentID).")
+                }
+            }
+
+            // 3. Firebase Authentication에서 사용자 삭제
+            try await user.delete()
+            print("Firebase Auth user deleted.")
+
+            // 모든 삭제 성공 후 로그아웃 처리
+            await signOut()
+            self.errorMessage = nil // 성공 시 에러 메시지 초기화
+
+        } catch let error as NSError {
+            print("Error deleting account: \(error.localizedDescription)")
+            if error.code == AuthErrorCode.requiresRecentLogin.rawValue {
+                print("Firebase Auth Error: User requires recent login for account deletion.")
+                self.errorMessage = "보안을 위해 재로그인이 필요합니다. 다시 로그인 후 시도해주세요."
+                self.shouldReauthenticate = true // 재인증 필요 플래그 설정
+                await signOut()
+            } else {
+                self.errorMessage = "회원 탈퇴 중 오류가 발생했습니다: \(error.localizedDescription)"
+            }
         }
     }
     

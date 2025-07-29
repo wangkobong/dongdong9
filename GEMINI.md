@@ -23,4 +23,7 @@
 
 이 프로젝트는 MVVM (Model-View-ViewModel) 아키텍처 패턴을 따릅니다.
 
+## x Project Context
+- Repository: github.com/wangkobong/dongdong9
+
 

@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var budgetViewModel: BudgetViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var showingLogoutAlert = false
+    @State private var showingDeleteAccountAlert = false // 회원탈퇴 확인 팝업을 위한 상태 변수
 
     var body: some View {
         NavigationView {
@@ -29,6 +30,13 @@ struct SettingsView: View {
                         Text("로그아웃")
                             .foregroundColor(.red)
                     }
+                    
+                    Button(action: {
+                        showingDeleteAccountAlert = true // 회원탈퇴 버튼 클릭 시 팝업 표시
+                    }) {
+                        Text("회원탈퇴")
+                            .foregroundColor(.red)
+                    }
                 }
             }
             .navigationTitle("설정")
@@ -41,6 +49,16 @@ struct SettingsView: View {
                 }
             } message: {
                 Text("정말로 로그아웃 하시겠습니까?")
+            }
+            .alert("회원탈퇴", isPresented: $showingDeleteAccountAlert) { // 회원탈퇴 확인 팝업
+                Button("취소", role: .cancel) { }
+                Button("탈퇴", role: .destructive) {
+                    Task {
+                        await authViewModel.deleteAccount()
+                    }
+                }
+            } message: {
+                Text("정말로 계정을 탈퇴하시겠습니까? 모든 데이터가 삭제됩니다.")
             }
         }
         .loadingSpinner(isLoading: $authViewModel.isLoading)

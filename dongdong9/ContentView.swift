@@ -5,7 +5,9 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if authViewModel.isAuthCheckComplete && authViewModel.isBudgetStatusChecked {
+            if authViewModel.shouldReauthenticate {
+                LoginView(isReauthenticating: true)
+            } else if authViewModel.isAuthCheckComplete && authViewModel.isBudgetStatusChecked {
                 if authViewModel.userSession != nil {
                     if authViewModel.hasBudget {
                         MainTabView()
@@ -16,7 +18,6 @@ struct ContentView: View {
                     LoginView()
                 }
             } else {
-                // 인증 및 가계부 상태 확인 중 로딩 인디케이터 표시
                 ProgressView("데이터 로딩 중...")
             }
         }
