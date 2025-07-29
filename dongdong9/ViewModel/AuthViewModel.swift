@@ -129,19 +129,47 @@ class AuthViewModel: ObservableObject {
         let db = Firestore.firestore()
         let userRef = db.collection("users").document(user.uid)
 
-        let userData: [String: Any] = [
-            "uid": user.uid,
-            "email": user.email ?? "",
-            "displayName": user.displayName ?? "",
-            "photoURL": user.photoURL?.absoluteString ?? "",
-            "createdAt": FieldValue.serverTimestamp()
-        ]
-
-        userRef.setData(userData, merge: true) { error in
+        userRef.getDocument { [weak self] (document, error) in
+            guard let self = self else { return }
             if let error = error {
-                print("Error saving user to Firestore: \(error.localizedDescription)")
+                print("Error fetching user document: \(error.localizedDescription)")
+                return
+            }
+
+            if document?.exists == false {
+                // User document does not exist, create it with createdAt and lastLoginAt
+                let userData: [String: Any] = [
+                    "uid": user.uid,
+                    "email": user.email ?? "",
+                    "displayName": user.displayName ?? "",
+                    "photoURL": user.photoURL?.absoluteString ?? "",
+                    "createdAt": FieldValue.serverTimestamp(),
+                    "lastLoginAt": FieldValue.serverTimestamp()
+                ]
+                userRef.setData(userData) { [weak self] error in
+                    guard let self = self else { return }
+                    if let error = error {
+                        print("Error creating user in Firestore: \(error.localizedDescription)")
+                    } else {
+                        print("New user data successfully saved in Firestore.")
+                    }
+                }
             } else {
-                print("User data successfully saved/updated in Firestore.")
+                // User document exists, update only relevant fields (e.g., lastLoginAt)
+                let updateData: [String: Any] = [
+                    "email": user.email ?? "",
+                    "displayName": user.displayName ?? "",
+                    "photoURL": user.photoURL?.absoluteString ?? "",
+                    "lastLoginAt": FieldValue.serverTimestamp()
+                ]
+                userRef.updateData(updateData) { [weak self] error in
+                    guard let self = self else { return }
+                    if let error = error {
+                        print("Error updating user in Firestore: \(error.localizedDescription)")
+                    } else {
+                        print("Existing user data successfully updated in Firestore.")
+                    }
+                }
             }
         }
     }
