@@ -47,6 +47,7 @@ struct LoginView: View {
                         // 필요 시 사용자에게 오류를 표시하는 로직 추가
                     }
                 }
+
             }) {
                 HStack {
                     Image(systemName: "applelogo")
