@@ -33,10 +33,16 @@ class FirebaseService {
      성공 시, 생성된 가계부의 ID(String)를 반환합니다.
      - Throws: 함수 호출 실패 또는 서버로부터 에러 응답을 받을 경우 에러를 던집니다.
      */
-    func createBudget() async throws -> String {
+    func createBudget(userId: String) async throws -> String {
         do {
+            
+            let userInfo: [String: Any] = [
+                "userID": userId,
+            ]
+
+            print("Sending userInfo: \(userInfo)")
             // 'createBudget' 함수를 호출하고 응답을 기다립니다.
-            let result = try await functions.httpsCallable("createBudget").call()
+            let result = try await functions.httpsCallable("createBudget").call(userInfo)
             
             // 반환된 데이터가 예상된 형식인지 확인합니다.
             guard let data = result.data as? [String: Any],
@@ -55,18 +61,6 @@ class FirebaseService {
             print("FirebaseService Error - createBudget: \(error.localizedDescription)")
             throw error
         }
-    }
-    
-    /**
-     테스트용 'helloWorld' 함수를 호출합니다.
-     */
-    func helloWorld() async throws -> String {
-        let result = try await functions.httpsCallable("helloWorld").call()
-        guard let data = result.data as? [String: Any],
-              let message = data["message"] as? String else {
-            throw FirebaseServiceError.invalidResponse
-        }
-        return message
     }
     
     func createUser(user: User) async throws -> Void {

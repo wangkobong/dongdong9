@@ -23,21 +23,16 @@ class BudgetViewModel: ObservableObject {
 
     // MARK: - Methods
     func createBudget(userId: String, authViewModel: AuthViewModel) {
-        let budgetData: [String: Any] = [
-            "userIds": [userId],
-            "createdAt": Timestamp(date: Date())
-        ]
-
-        var ref: DocumentReference? = nil
-        ref = db.collection("budgets").addDocument(data: budgetData) { [weak self] error in
-            if let error = error {
-                print("Error adding document: \(error)")
-            } else {
-                if let documentID = ref?.documentID {
-                    self?.budgetId = documentID
+        Task {
+            do {
+                let newBudgetId = try await FirebaseService.shared.createBudget(userId: userId)
+                DispatchQueue.main.async {
+                    self.budgetId = newBudgetId
                     authViewModel.hasBudget = true
-                    print("Budget document added with ID: \(documentID)")
+                    print("Budget document added with ID: \(newBudgetId)")
                 }
+            } catch {
+                print("Error creating budget: \(error.localizedDescription)")
             }
         }
     }

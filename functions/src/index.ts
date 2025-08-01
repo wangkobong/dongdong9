@@ -99,83 +99,112 @@ export const onUserCreate = functions.https.onCall(async (data: any, context: an
 });
 
 
-// --- 함수 2: 가계부 생성 및 초대 코드 발급 (호출 가능 함수) ---
+// --- 함수 2: 가계부 생성 (호출 가능 함수) ---
 /**
  * 클라이언트에서 호출하여 새로운 가계부를 생성합니다.
- * 1. 새로운 budget 문서를 생성합니다.
- * 2. 6자리 난수 초대 코드를 생성하여 budget 문서에 저장합니다.
- * 3. 요청한 사용자의 user 문서에 생성된 budgetId를 업데이트합니다.
- * 이 모든 과정은 트랜잭션으로 처리되어 데이터 정합성을 보장합니다.
+ * 인증된 사용자의 ID를 사용하여 'budgets' 컬렉션에 새 문서를 만듭니다.
  */
-// export const createBudget = functions.https.onCall(async (data: any, context: any) => {
-//   // 1. 사용자가 인증되었는지 확인합니다.
-//   if (!context.auth) {
-//     throw new functions.https.HttpsError(
-//       "unauthenticated",
-//       "The function must be called while authenticated."
-//     );
-//   }
+export const createBudget = functions.https.onCall(async (data: any, context: any) => {
+  console.log('=== FULL DEBUG INFO ===');
+  console.log('typeof data:', typeof data);
+  console.log('data:', data);
+  console.log('data keys:', data ? Object.keys(data) : 'data is null/undefined');
+  
+  // 혹시 data가 다른 구조일 가능성 체크
+  if (data && data.data) {
+    console.log('Found nested data.data:', data.data);
+    console.log('data.data keys:', Object.keys(data.data));
+  }
+  
+  // context도 체크
+  console.log('context keys:', context ? Object.keys(context) : 'context is null');
+  console.log('===========================');
 
-//   const userId = context.auth.uid;
-//   console.log(`Budget creation request from user: ${userId}`);
+  // 실제 userInfo 찾기
+  let userInfo = data;
+  
+  // 만약 data가 wrapper 객체라면
+  if (data && data.data && typeof data.data === 'object') {
+    userInfo = data.data;
+    console.log('Using nested data.data as userInfo');
+  }
+  
+  console.log('Final userInfo:', userInfo);
+  console.log('Final userInfo keys:', userInfo ? Object.keys(userInfo) : 'userInfo is null');
+  
+  if (!userInfo) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'No data received',
+      { 
+        originalData: data,
+        dataType: typeof data,
+        contextKeys: context ? Object.keys(context) : null
+      }
+    );
+  }
+  
+  const userId = userInfo.userID || userInfo.uid;
+  console.log('Extracted userId:', userId);
+  
+  if (!userId) {
+    console.log('❌ Missing userID. userInfo structure:', userInfo);
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Missing userID',
+      { 
+        receivedKeys: Object.keys(userInfo),
+        userInfo: userInfo,
+        originalData: data
+      }
+    );
+  }
 
-//   // 2. Firestore 트랜잭션을 사용하여 여러 작업을 원자적으로 실행합니다.
-//   try {
-//     const newBudgetId = await db.runTransaction(async (transaction) => {
-//       const userRef = db.collection("users").doc(userId);
-//       const userDoc = await transaction.get(userRef);
+  try {
+    const newBudgetId = await db.runTransaction(async (transaction) => {
+      const userRef = db.collection("users").doc(userId);
+      const userDoc = await transaction.get(userRef);
 
-//       // 2-1. 사용자 문서가 없거나, 이미 budgetId가 있는지 확인합니다.
-//       if (!userDoc.exists) {
-//         throw new functions.https.HttpsError("not-found", "User document not found.");
-//       }
-//       if (userDoc.data()?.budgetId) {
-//         throw new functions.https.HttpsError("already-exists", "User already has a budget.");
-//       }
+      if (!userDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "User document not found.");
+      }
+      
+      if (userDoc.data()?.budgetId) {
+        throw new functions.https.HttpsError("already-exists", "User already has a budget.");
+      }
 
-//       // 2-2. 6자리 난수 초대 코드를 생성합니다.
-//       const inviteCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const newBudgetRef = db.collection("budgets").doc();
+      const budgetData = {
+        userIds: [userId],
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      transaction.set(newBudgetRef, budgetData);
 
-//       // 2-3. 새로운 가계부(budget) 문서를 생성합니다.
-//       const newBudgetRef = db.collection("budgets").doc(); // ID 자동 생성
-//       const budgetData = {
-//         userIds: [userId],
-//         inviteCode: inviteCode, // 초대 코드 추가
-//         fixedIncome: 0.0,
-//         additionalIncome: 0.0,
-//         fixedExpenses: [],
-//         categories: [],
-//         currentBalance: 0.0,
-//         balanceTransactions: [],
-//         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-//         lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-//       };
-//       transaction.set(newBudgetRef, budgetData);
+      transaction.update(userRef, {
+        budgetId: newBudgetRef.id,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
 
-//       // 2-4. 사용자(user) 문서에 새로 생성된 가계부의 ID를 업데이트합니다.
-//       transaction.update(userRef, { 
-//         budgetId: newBudgetRef.id,
-//         updatedAt: admin.firestore.FieldValue.serverTimestamp()
-//       });
+      return newBudgetRef.id;
+    });
 
-//       // 2-5. 트랜잭션의 결과로 새로운 가계부 ID를 반환합니다.
-//       return newBudgetRef.id;
-//     });
+    console.log(`✅ Successfully created budget ${newBudgetId} for user ${userId}`);
+    
+    return { 
+      status: "success", 
+      budgetId: newBudgetId 
+    };
 
-//     // 3. 성공 시, 클라이언트에 새로운 가계부 ID를 반환합니다.
-//     console.log(`Successfully created budget ${newBudgetId} for user ${userId}`);
-//     return { status: "success", budgetId: newBudgetId };
-
-//   } catch (error) {
-//     console.error("Transaction failed: ", error);
-//     // 4. 실패 시, 클라이언트에 에러를 던집니다.
-//     if (error instanceof functions.https.HttpsError) {
-//       throw error; // 우리가 정의한 HttpsError는 그대로 던집니다.
-//     }
-//     // 그 외의 에러는 일반적인 내부 서버 에러로 처리합니다.
-//     throw new functions.https.HttpsError(
-//       "internal",
-//       "An error occurred while creating the budget."
-//     );
-//   }
-// });
+  } catch (error) {
+    console.error("❌ Transaction failed:", error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError(
+      "internal",
+      "An error occurred while creating the budget."
+    );
+  }
+});
