@@ -174,9 +174,15 @@ export const createBudget = functions.https.onCall(async (data: any, context: an
       }
 
       const newBudgetRef = db.collection("budgets").doc();
+
+            // ✅ 고유한 초대 코드 생성
+      const inviteCode = await generateUniqueInviteCode();
+      console.log(`Generated invite code: ${inviteCode}`);
+      
       const budgetData = {
         userIds: [userId],
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        inviteCode: inviteCode,
       };
       transaction.set(newBudgetRef, budgetData);
 
@@ -208,3 +214,40 @@ export const createBudget = functions.https.onCall(async (data: any, context: an
     );
   }
 });
+
+// 초대 코드 생성 함수 (Functions 파일 최상단에 추가)
+function generateInviteCode(): string {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return result;
+}
+
+// 초대 코드 중복 체크 함수
+async function generateUniqueInviteCode(): Promise<string> {
+  let inviteCode: string;
+  let isUnique = false;
+  let attempts = 0;
+  const maxAttempts = 10; // 무한 루프 방지
+  
+  do {
+    inviteCode = generateInviteCode();
+    
+    // 기존 초대 코드와 중복 체크
+    const existingBudget = await db.collection("budgets")
+      .where("inviteCode", "==", inviteCode)
+      .limit(1)
+      .get();
+    
+    isUnique = existingBudget.empty;
+    attempts++;
+    
+    if (attempts >= maxAttempts) {
+      throw new Error("Failed to generate unique invite code after multiple attempts");
+    }
+  } while (!isUnique);
+  
+  return inviteCode;
+}
