@@ -18,12 +18,17 @@
     - `dongdong9Tests.swift`: 예제 단위 테스트 파일입니다.
 - `dongdong9UITests/`: UI 테스트를 위한 타겟입니다.
     - `dongdong9UITests.swift`: 예제 UI 테스트 파일입니다.
+- `functions/`: Firebase Functions 관련 코드.
+    - `src/index.ts`: Firebase Functions의 메인 소스 코드 파일입니다.
 
 ## 디자인 패턴
 
 이 프로젝트는 MVVM (Model-View-ViewModel) 아키텍처 패턴을 따릅니다.
 
+## 기술 스택
+
+- **서버 통신**: Firebase Functions
+- **데이터베이스**: Cloud Firestore
+
 ## x Project Context
 - Repository: github.com/wangkobong/dongdong9
-
-

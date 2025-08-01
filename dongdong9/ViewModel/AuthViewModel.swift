@@ -119,7 +119,9 @@ class AuthViewModel: ObservableObject {
                     print("Photo URL: \(firebaseUser.photoURL?.absoluteString ?? "없음")")
                     print("Is Email Verified: \(firebaseUser.isEmailVerified)")
                     print("Provider Data: \(firebaseUser.providerData.map { $0.providerID })")
-                self.saveUserToFirestore(user: firebaseUser)
+                Task {
+                    try await FirebaseService.shared.createUser(user: firebaseUser)
+                }
                 self.isLoading = false
             }
         }

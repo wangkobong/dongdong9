@@ -1,6 +1,9 @@
 
 import Foundation
 import FirebaseFunctions
+import FirebaseAuth
+import FirebaseFirestore
+
 
 // Firebase Functions 호출 시 발생할 수 있는 커스텀 에러
 enum FirebaseServiceError: Error {
@@ -18,8 +21,8 @@ class FirebaseService {
     static let shared = FirebaseService()
     
     // MARK: - Properties
-    private lazy var functions = Functions.functions() // Functions 인스턴스
-    
+    let functions = Functions.functions(region: "us-central1")
+
     // private 생성자로 외부에서 직접 인스턴스를 생성하는 것을 방지합니다.
     private init() {}
     
@@ -64,5 +67,54 @@ class FirebaseService {
             throw FirebaseServiceError.invalidResponse
         }
         return message
+    }
+    
+    func createUser(user: User) async throws -> Void {
+        let db = Firestore.firestore()
+        let userRef = db.collection("users").document(user.uid)
+
+        let document = try await userRef.getDocument()
+
+        if document.exists == false {
+            let currentTime = ISO8601DateFormatter().string(from: Date())
+
+            let userInfo: [String: Any] = [
+                "userID": user.uid,
+                "email": user.email ?? "",
+                "displayName": user.displayName ?? "",
+                "profileImageUrl": user.photoURL?.absoluteString ?? ""
+            ]
+
+            print("Sending userInfo: \(userInfo)")
+
+
+            // Firebase Function 'onUserCreate' 호출 (Auth 트리거이므로 직접 호출은 불필요할 수 있음. 확인 필요)
+            // 만약 이 함수가 Auth 트리거가 아닌 일반 Callable Function이라면 아래 코드를 사용.
+            // 현재 구조상 Auth 트리거이므로 이 부분은 주석 처리하거나 제거하는 것이 맞을 수 있습니다.
+            do {
+                let result = try await functions.httpsCallable("onUserCreate").call(userInfo)
+                print("onUserCreate result: \(result.data)")
+
+            } catch {
+                print("에러: \(error)")
+            }
+//            print("onUserCreate result: \(result)")
+//             guard let data = result.data as? [String: Any],
+//                   let status = data["status"] as? String, status == "success",
+//                   let userId = data["userId"] as? String else {
+//                 throw FirebaseServiceError.invalidResponse
+//             }
+
+        } else {
+            // User document exists, update only relevant fields (e.g., lastLoginAt)
+            let updateData: [String: Any] = [
+                "email": user.email ?? "",
+                "displayName": user.displayName ?? "",
+                "photoURL": user.photoURL?.absoluteString ?? "",
+                "lastLoginAt": FieldValue.serverTimestamp()
+            ]
+            try await userRef.updateData(updateData)
+            print("Existing user data successfully updated in Firestore.")
+        }
     }
 }
