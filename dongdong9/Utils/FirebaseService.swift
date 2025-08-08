@@ -111,4 +111,25 @@ class FirebaseService {
             print("Existing user data successfully updated in Firestore.")
         }
     }
+
+    func addCategory(budgetId: String, categoryName: String, parentCategoryId: String?) async throws -> String {
+        let data: [String: Any] = [
+            "budgetId": budgetId,
+            "categoryName": categoryName,
+            "parentCategoryId": parentCategoryId ?? NSNull()
+        ]
+
+        do {
+            let result = try await functions.httpsCallable("addCategory").call(data)
+            guard let resultData = result.data as? [String: Any],
+                  let status = resultData["status"] as? String, status == "success",
+                  let categoryId = resultData["categoryId"] as? String else {
+                throw FirebaseServiceError.invalidResponse
+            }
+            return categoryId
+        } catch {
+            print("FirebaseService Error - addCategory: \(error.localizedDescription)")
+            throw error
+        }
+    }
 }

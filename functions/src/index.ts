@@ -251,3 +251,56 @@ async function generateUniqueInviteCode(): Promise<string> {
   
   return inviteCode;
 }
+
+// --- 함수 3: 카테고리 추가 (호출 가능 함수) ---
+/**
+ * 클라이언트에서 호출하여 특정 가계부에 새로운 카테고리를 추가합니다.
+ */
+export const addCategory = functions.https.onCall(async (data: any, context: any) => {
+  // 1. 인증 확인
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'The function must be called while authenticated.'
+    );
+  }
+
+  // 2. 데이터 유효성 검사
+  const { budgetId, categoryName, parentCategoryId } = data;
+  if (!budgetId || !categoryName) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'The function must be called with "budgetId" and "categoryName" arguments.'
+    );
+  }
+
+  try {
+    const budgetRef = db.collection('budgets').doc(budgetId);
+    const categoryCollectionRef = budgetRef.collection('categories');
+
+    // 3. 새 카테고리 문서 생성
+    const newCategoryRef = categoryCollectionRef.doc();
+    const newCategoryData = {
+      id: newCategoryRef.id,
+      name: categoryName,
+      parentCategoryId: parentCategoryId || null, // 상위 카테고리 ID가 없으면 null
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await newCategoryRef.set(newCategoryData);
+
+    console.log(`✅ Successfully added category ${newCategoryRef.id} to budget ${budgetId}`);
+
+    return {
+      status: 'success',
+      categoryId: newCategoryRef.id,
+      message: 'Category added successfully',
+    };
+  } catch (error) {
+    console.error('❌ Error adding category:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'An error occurred while adding the category.'
+    );
+  }
+});
