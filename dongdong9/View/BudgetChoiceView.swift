@@ -3,7 +3,7 @@ import SwiftUI
 
 struct BudgetChoiceView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
-    @StateObject private var budgetViewModel = BudgetViewModel()
+    @EnvironmentObject var budgetViewModel: BudgetViewModel
 
     var body: some View {
         NavigationView {
@@ -47,7 +47,13 @@ struct MainButtonModifier: ViewModifier {
 
 struct BudgetChoiceView_Previews: PreviewProvider {
     static var previews: some View {
+        // 실제 앱 실행 시에는 ContentView에서 BudgetViewModel이 생성되어 주입됩니다.
+        // 프리뷰에서는 AuthViewModel의 목 인스턴스를 사용하여 BudgetViewModel을 생성합니다.
+        let authViewModel = AuthViewModel()
+        let budgetViewModel = BudgetViewModel(authViewModel: authViewModel)
+        
         BudgetChoiceView()
-            .environmentObject(AuthViewModel())
+            .environmentObject(authViewModel)
+            .environmentObject(budgetViewModel)
     }
 }

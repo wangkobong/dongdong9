@@ -4,7 +4,7 @@ import SwiftUI
 struct JoinBudgetView: View {
     @State private var inviteCode = ""
     @EnvironmentObject var authViewModel: AuthViewModel
-    @StateObject private var budgetViewModel = BudgetViewModel()
+    @EnvironmentObject var budgetViewModel: BudgetViewModel
 
     var body: some View {
         VStack(spacing: 20) {
@@ -32,7 +32,11 @@ struct JoinBudgetView: View {
 
 struct JoinBudgetView_Previews: PreviewProvider {
     static var previews: some View {
+        let authViewModel = AuthViewModel()
+        let budgetViewModel = BudgetViewModel(authViewModel: authViewModel)
+
         JoinBudgetView()
-            .environmentObject(AuthViewModel())
+            .environmentObject(authViewModel)
+            .environmentObject(budgetViewModel)
     }
 }

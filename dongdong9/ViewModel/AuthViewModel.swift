@@ -19,6 +19,7 @@ class AuthViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isAuthCheckComplete = false
     @Published var hasBudget = false
+    @Published var budgetId: String?
     @Published var isBudgetStatusChecked = false
     @Published var shouldReauthenticate: Bool = false // 재인증 필요 여부
     private let authRepository: AuthRepository
@@ -49,11 +50,14 @@ class AuthViewModel: ObservableObject {
             if let error = error {
                 print("Error getting documents: \(error)")
                 self.hasBudget = false
+                self.budgetId = nil
             } else {
-                if let documents = querySnapshot?.documents, !documents.isEmpty {
+                if let document = querySnapshot?.documents.first {
                     self.hasBudget = true
+                    self.budgetId = document.documentID
                 } else {
                     self.hasBudget = false
+                    self.budgetId = nil
                 }
             }
             self.isBudgetStatusChecked = true // 가계부 상태 확인 완료

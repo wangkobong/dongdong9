@@ -30,7 +30,10 @@ struct AddCategoryView: View {
 
 struct AddCategoryView_Previews: PreviewProvider {
     static var previews: some View {
+        let authViewModel = AuthViewModel()
+        let budgetViewModel = BudgetViewModel(authViewModel: authViewModel)
+
         AddCategoryView()
-            .environmentObject(BudgetViewModel())
+            .environmentObject(budgetViewModel)
     }
 }

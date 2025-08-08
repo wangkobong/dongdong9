@@ -1,7 +1,14 @@
 import SwiftUI
 
 struct ContentView: View {
-    @EnvironmentObject var authViewModel: AuthViewModel
+    @StateObject private var authViewModel: AuthViewModel
+    @StateObject private var budgetViewModel: BudgetViewModel
+
+    init() {
+        let authVm = AuthViewModel()
+        _authViewModel = StateObject(wrappedValue: authVm)
+        _budgetViewModel = StateObject(wrappedValue: BudgetViewModel(authViewModel: authVm))
+    }
 
     var body: some View {
         Group {
@@ -21,12 +28,13 @@ struct ContentView: View {
                 ProgressView("데이터 로딩 중...")
             }
         }
+        .environmentObject(authViewModel)
+        .environmentObject(budgetViewModel)
     }
 }
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
-            .environmentObject(AuthViewModel()) // Preview를 위해 가짜 뷰모델 주입
     }
 }

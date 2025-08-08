@@ -11,10 +11,8 @@ struct SettingsView: View {
         NavigationView {
             Form {
                 Section(header: Text("설정")) {
-                    HStack {
+                    NavigationLink(destination: IncomeSettingView()) {
                         Text("소득설정")
-                        Spacer()
-
                     }
                     HStack {
                         Text("초대 코드")
@@ -67,8 +65,11 @@ struct SettingsView: View {
 
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
+        let authViewModel = AuthViewModel()
+        let budgetViewModel = BudgetViewModel(authViewModel: authViewModel)
+
         SettingsView()
-            .environmentObject(BudgetViewModel())
-            .environmentObject(AuthViewModel())
+            .environmentObject(budgetViewModel)
+            .environmentObject(authViewModel)
     }
 }

@@ -58,7 +58,10 @@ struct BudgetView: View {
 
 struct BudgetView_Previews: PreviewProvider {
     static var previews: some View {
+        let authViewModel = AuthViewModel()
+        let budgetViewModel = BudgetViewModel(authViewModel: authViewModel)
+
         BudgetView()
-            .environmentObject(BudgetViewModel())
+            .environmentObject(budgetViewModel)
     }
 }

@@ -11,6 +11,14 @@ class BudgetViewModel: ObservableObject {
     @Published var budgetId: String? // 생성된 가계부 ID
 
     private var db = Firestore.firestore()
+    private var cancellables = Set<AnyCancellable>()
+
+    init(authViewModel: AuthViewModel) {
+        authViewModel.$budgetId
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.budgetId, on: self)
+            .store(in: &cancellables)
+    }
 
     // MARK: - Computed Properties
     var totalFixedExpenses: Double {

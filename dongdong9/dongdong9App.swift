@@ -34,14 +34,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct dongdong9App: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    @StateObject private var budgetViewModel = BudgetViewModel()
-    @StateObject private var authViewModel = AuthViewModel()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(budgetViewModel)
-                .environmentObject(authViewModel)
         }
     }
 }

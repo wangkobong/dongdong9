@@ -32,7 +32,10 @@ struct AddFixedExpenseView: View {
 
 struct AddFixedExpenseView_Previews: PreviewProvider {
     static var previews: some View {
+        let authViewModel = AuthViewModel()
+        let budgetViewModel = BudgetViewModel(authViewModel: authViewModel)
+
         AddFixedExpenseView()
-            .environmentObject(BudgetViewModel())
+            .environmentObject(budgetViewModel)
     }
 }

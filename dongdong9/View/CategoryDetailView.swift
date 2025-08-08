@@ -34,6 +34,8 @@ struct CategoryDetailView: View {
 
 struct CategoryDetailView_Previews: PreviewProvider {
     static var previews: some View {
+        let authViewModel = AuthViewModel()
+        let budgetViewModel = BudgetViewModel(authViewModel: authViewModel)
         let sampleCategory = ExpenseCategory(name: "식비", subcategories: [
             ExpenseCategory(name: "점심"),
             ExpenseCategory(name: "저녁")
@@ -41,7 +43,7 @@ struct CategoryDetailView_Previews: PreviewProvider {
         
         NavigationView {
             CategoryDetailView(category: sampleCategory)
-                .environmentObject(BudgetViewModel())
+                .environmentObject(budgetViewModel)
         }
     }
 }
