@@ -3,7 +3,7 @@ import SwiftUI
 
 struct AddCategoryView: View {
     @Environment(\.presentationMode) var presentationMode
-    @EnvironmentObject var budgetViewModel: BudgetViewModel
+    @EnvironmentObject var authViewModel: AuthViewModel // AuthViewModel 추가
     @EnvironmentObject var categoryViewModel: CategoryViewModel
 
     
@@ -21,12 +21,14 @@ struct AddCategoryView: View {
             .navigationBarItems(leading: Button("취소") {
                 presentationMode.wrappedValue.dismiss()
             }, trailing: Button("저장") {
-                if !categoryName.isEmpty {
-                    let category = CategoryModel(
+                if !categoryName.isEmpty, let budgetId = authViewModel.budgetId {
+                    var category = CategoryModel(
                                                  categoryName: categoryName,
                                                  description: "",
                                                  spendingMoney: 0,
                                                  subCategory: [])
+                    category.budgetId = budgetId // budgetId 설정
+                    
                     // Task 블록으로 비동기 함수 호출
                     Task {
                         await categoryViewModel.addCategory(category)
@@ -47,6 +49,8 @@ struct AddCategoryView_Previews: PreviewProvider {
         let budgetViewModel = BudgetViewModel(authViewModel: authViewModel)
 
         AddCategoryView()
+            .environmentObject(authViewModel) // Preview를 위해 추가
             .environmentObject(budgetViewModel)
+            .environmentObject(CategoryViewModel())
     }
 }

@@ -114,13 +114,11 @@ class FirebaseService {
 
     func addCategory(category: CategoryModel) async throws -> String {
         let data: [String: Any] = [
-            "categoryId": category.categoryId,
+            "budgetId": category.budgetId,
             "categoryName": category.categoryName,
             "description": category.description,
             "spendingMoney": category.spendingMoney,
-            "subCategory": category.subCategory,
-            "createdAt": category.createdAt,
-            "updatedAt": category.updatedAt ?? nil
+            "subCategory": [] // 서브카테고리는 현재 지원하지 않으므로 빈 배열로 보냅니다.
         ]
 
         do {

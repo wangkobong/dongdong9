@@ -9,6 +9,7 @@ import Foundation
 
 struct CategoryModel: Codable {
     var categoryId: String = UUID().uuidString
+    var budgetId: String = ""
     let categoryName: String
     let description: String
     let spendingMoney: Int
