@@ -330,3 +330,82 @@ export const addCategory = functions.https.onCall(async (data: any, context: any
     );
   }
 });
+
+// --- 함수 4: 고정 지출 추가 (호출 가능 함수) ---
+/**
+ * 클라이언트에서 호출하여 특정 가계부에 새로운 고정 지출을 추가합니다.
+ */
+export const addFixedExpense = functions.https.onCall(async (data: any, context: any) => {
+  console.log('=== FULL DEBUG INFO (addFixedExpense) ===');
+  console.log('typeof data:', typeof data);
+  console.log('data:', data);
+  console.log('data keys:', data ? Object.keys(data) : 'data is null/undefined');
+
+  // 혹시 data가 다른 구조일 가능성 체크 (addCategory 참고)
+  if (data && data.data) {
+    console.log('Found nested data.data:', data.data);
+    console.log('data.data keys:', Object.keys(data.data));
+  }
+
+  // context도 체크
+  console.log('context keys:', context ? Object.keys(context) : 'context is null');
+  console.log('===========================');
+
+  let fixedExpenseData = data;
+  // 만약 data가 wrapper 객체라면 (addCategory 참고)
+  if (data && data.data && typeof data.data === 'object') {
+    fixedExpenseData = data.data;
+    console.log('Using nested data.data as fixedExpenseData');
+  }
+
+  console.log('Final fixedExpenseData:', fixedExpenseData);
+  console.log('Final fixedExpenseData keys:', fixedExpenseData ? Object.keys(fixedExpenseData) : 'fixedExpenseData is null');
+
+  // 데이터 유효성 검사
+  const { budgetId, name, amount } = fixedExpenseData; // Use fixedExpenseData here
+  if (!budgetId || !name || amount === undefined) {
+    console.error('Validation failed: budgetId, name, or amount is missing.');
+    console.error('budgetId:', budgetId);
+    console.error('name:', name);
+    console.error('amount:', amount);
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'The function must be called with "budgetId", "name", and "amount" arguments.'
+    );
+  }
+
+  try {
+    const budgetRef = db.collection('budgets').doc(budgetId);
+    const fixedExpensesCollectionRef = budgetRef.collection('fixedExpenses');
+
+    // 새 고정 지출 문서 생성
+    const newFixedExpenseRef = fixedExpensesCollectionRef.doc();
+    const newFixedExpenseData = {
+      fixedExpenseId: newFixedExpenseRef.id, // FixedExpenseModel에 맞게 fixedExpenseId 추가
+      budgetId: budgetId,
+      name: name,
+      amount: amount,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await newFixedExpenseRef.set(newFixedExpenseData);
+
+    console.log(`✅ Successfully added fixed expense ${newFixedExpenseRef.id} to budget ${budgetId}`);
+
+    return {
+      status: 'success',
+      fixedExpenseId: newFixedExpenseRef.id,
+      message: 'Fixed expense added successfully',
+    };
+  } catch (error) {
+    console.error('❌ Error adding fixed expense:', error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError(
+      'internal',
+      'An error occurred while adding the fixed expense.'
+    );
+  }
+});

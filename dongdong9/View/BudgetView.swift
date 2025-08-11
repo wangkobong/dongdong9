@@ -5,15 +5,34 @@ struct BudgetView: View {
     @EnvironmentObject var authViewModel: AuthViewModel // AddCategoryView에 넘겨주기 위해 추가
     @EnvironmentObject var budgetViewModel: BudgetViewModel
     @State private var showingAddCategory = false
+    @State private var showingAddFixedExpense = false // 고정 지출 추가를 위한 State
 
     var body: some View {
         NavigationView {
             List {
-                // 고정 지출 섹션 완전 삭제
-                
+                // 고정 지출 섹션
+                Section(header:
+                    HStack {
+                        Text("고정 지출")
+                        Spacer()
+                        Button(action: { showingAddFixedExpense.toggle() }) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(.accentColor)
+                        }
+                    }
+                ) {
+                    ForEach(budgetViewModel.fixedExpenses, id: \.fixedExpenseId) { expense in
+                        HStack {
+                            Text(expense.name)
+                            Spacer()
+                            Text(expense.amount, format: .currency(code: "KRW"))
+                        }
+                    }
+                    // .onDelete(perform: budgetViewModel.removeFixedExpense) // 삭제 기능은 추후 구현
+                }
+
                 Section(header: Text("지출 카테고리")) {
-                    // 이제 budgetViewModel.categories는 [CategoryModel] 타입입니다.
-                    ForEach(budgetViewModel.categories, id: \.categoryId) { category in
+                    ForEach(budgetViewModel.categories, id: \.categoryId) { category in // id: \.categoryId 제거
                         NavigationLink(destination: CategoryDetailView(category: category)) {
                             Text(category.categoryName)
                         }
@@ -28,12 +47,15 @@ struct BudgetView: View {
                 Text("카테고리 추가")
             })
             .sheet(isPresented: $showingAddCategory) {
-                // AddCategoryView에 authViewModel도 넘겨줍니다.
                 AddCategoryView()
                     .environmentObject(authViewModel)
                     .environmentObject(budgetViewModel)
             }
-            // 고정 지출 추가 시트 삭제
+            .sheet(isPresented: $showingAddFixedExpense) { // 고정 지출 추가 시트
+                AddFixedExpenseView()
+                    .environmentObject(authViewModel)
+                    .environmentObject(budgetViewModel)
+            }
         }
     }
 }

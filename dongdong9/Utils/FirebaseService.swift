@@ -134,4 +134,32 @@ class FirebaseService {
             throw error
         }
     }
+
+    func addFixedExpense(fixedExpense: FixedExpenseModel) async throws -> String {
+        // FixedExpenseModel을 딕셔너리로 변환 (Firestore에 저장할 수 있도록)
+        // Codable을 사용하므로 JSONEncoder를 통해 변환
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601 // Date 타입을 ISO8601 문자열로 인코딩
+
+        guard let data = try? encoder.encode(fixedExpense) else {
+            throw FirebaseServiceError.dataDecodingError
+        }
+        
+        guard let dictionary = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] else {
+            throw FirebaseServiceError.dataDecodingError
+        }
+
+        do {
+            let result = try await functions.httpsCallable("addFixedExpense").call(dictionary)
+            guard let resultData = result.data as? [String: Any],
+                  let status = resultData["status"] as? String, status == "success",
+                  let fixedExpenseId = resultData["fixedExpenseId"] as? String else {
+                throw FirebaseServiceError.invalidResponse
+            }
+            return fixedExpenseId
+        } catch {
+            print("FirebaseService Error - addFixedExpense: \(error.localizedDescription)")
+            throw error
+        }
+    }
 }

@@ -8,11 +8,13 @@ class BudgetViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var totalIncome: Double = 0
     @Published var categories: [CategoryModel] = [] // 통합된 CategoryModel 사용
+    @Published var fixedExpenses: [FixedExpenseModel] = [] // FixedExpenseModel 추가
     @Published var budgetId: String? {
         didSet {
             // MainActor에서 실행되도록 Task로 감싸줍니다.
             Task {
                 await fetchCategories()
+                await fetchFixedExpenses() // FixedExpense도 로드
             }
         }
     }
@@ -20,6 +22,7 @@ class BudgetViewModel: ObservableObject {
     private var db = Firestore.firestore()
     private var cancellables = Set<AnyCancellable>()
     private var categoryListener: ListenerRegistration? // 실시간 리스너를 관리하기 위한 변수
+    private var fixedExpenseListener: ListenerRegistration? // FixedExpense 리스너 추가
 
     init(authViewModel: AuthViewModel) {
         // AuthViewModel로부터 budgetId를 구독합니다.
@@ -32,12 +35,12 @@ class BudgetViewModel: ObservableObject {
     deinit {
         // ViewModel이 메모리에서 해제될 때 리스너도 함께 제거합니다.
         categoryListener?.remove()
+        fixedExpenseListener?.remove() // FixedExpense 리스너 제거
     }
 
     // MARK: - Computed Properties
-    // FixedExpense 관련 로직 제거
     var netBudget: Double {
-        totalIncome
+        totalIncome // Simplified
     }
 
     // MARK: - Methods
@@ -118,6 +121,55 @@ class BudgetViewModel: ObservableObject {
                     }
                 }
                 print("✅ Successfully fetched \(self.categories.count) categories.")
+            }
+    }
+
+    // FixedExpense 추가 함수
+    func addFixedExpense(_ fixedExpense: FixedExpenseModel) async {
+        print("고정 지출 추가: \(fixedExpense)")
+        do {
+            _ = try await FirebaseService.shared.addFixedExpense(fixedExpense: fixedExpense)
+        } catch {
+            print("고정 지출 추가 실패: \(error)")
+        }
+    }
+
+    // 고정 지출을 실시간으로 가져오는 함수
+    @MainActor
+    func fetchFixedExpenses() {
+        fixedExpenseListener?.remove() // 기존 리스너 제거
+
+        guard let budgetId = budgetId, !budgetId.isEmpty else {
+            print("Budget ID is not available, cannot fetch fixed expenses.")
+            self.fixedExpenses = []
+            return
+        }
+
+        print("Fetching fixed expenses for budgetId: \(budgetId)")
+        fixedExpenseListener = db.collection("budgets").document(budgetId).collection("fixedExpenses")
+            .order(by: "createdAt", descending: false)
+            .addSnapshotListener { [weak self] querySnapshot, error in
+                guard let self = self else { return }
+
+                if let error = error {
+                    print("Error fetching fixed expenses: \(error.localizedDescription)")
+                    return
+                }
+
+                guard let documents = querySnapshot?.documents else {
+                    print("No fixed expense documents found")
+                    return
+                }
+
+                self.fixedExpenses = documents.compactMap { document -> FixedExpenseModel? in
+                    do {
+                        return try document.data(as: FixedExpenseModel.self)
+                    } catch {
+                        print("Error decoding fixed expense document \(document.documentID): \(error)")
+                        return nil
+                    }
+                }
+                print("✅ Successfully fetched \(self.fixedExpenses.count) fixed expenses.")
             }
     }
 
