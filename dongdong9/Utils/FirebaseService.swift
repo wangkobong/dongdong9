@@ -112,11 +112,15 @@ class FirebaseService {
         }
     }
 
-    func addCategory(budgetId: String, categoryName: String, parentCategoryId: String?) async throws -> String {
+    func addCategory(category: CategoryModel) async throws -> String {
         let data: [String: Any] = [
-            "budgetId": budgetId,
-            "categoryName": categoryName,
-            "parentCategoryId": parentCategoryId ?? NSNull()
+            "categoryId": category.categoryId,
+            "categoryName": category.categoryName,
+            "description": category.description,
+            "spendingMoney": category.spendingMoney,
+            "subCategory": category.subCategory,
+            "createdAt": category.createdAt,
+            "updatedAt": category.updatedAt ?? nil
         ]
 
         do {

@@ -45,15 +45,6 @@ class BudgetViewModel: ObservableObject {
         }
     }
 
-    func addCategory(name: String, parent: ExpenseCategory? = nil) {
-        let newCategory = ExpenseCategory(name: name)
-        if let parent = parent,
-           let parentIndex = categories.firstIndex(where: { $0.id == parent.id }) {
-            categories[parentIndex].subcategories.append(newCategory)
-        } else {
-            categories.append(newCategory)
-        }
-    }
 
     func addFixedExpense(name: String, amount: Double) {
         let newExpense = FixedExpense(name: name, amount: amount)

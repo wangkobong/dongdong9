@@ -179,21 +179,6 @@ class AuthViewModel: ObservableObject {
             }
         }
     }
-
-    @MainActor
-    func signInWithApple2() {
-        self.isLoading = true
-        self.errorMessage = nil
-
-        let appleIDProvider = ASAuthorizationAppleIDProvider()
-        let request = appleIDProvider.createRequest()
-        request.requestedScopes = [.fullName, .email]
-
-        let authorizationController = ASAuthorizationController(authorizationRequests: [request])
-//        authorizationController.delegate = self
-//        authorizationController.presentationContextProvider = self
-//        authorizationController.performRequests()
-    }
     
     func signInWithApple() async throws {
          let nonce = String.randomNonceString()

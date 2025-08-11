@@ -3,6 +3,7 @@ import SwiftUI
 
 struct BudgetView: View {
     @EnvironmentObject var budgetViewModel: BudgetViewModel
+    @EnvironmentObject var categoryViewModel: CategoryViewModel
     @State private var showingAddCategory = false
     @State private var showingAddFixedExpense = false
 
@@ -47,6 +48,7 @@ struct BudgetView: View {
             .sheet(isPresented: $showingAddCategory) {
                 AddCategoryView()
                     .environmentObject(budgetViewModel)
+                    .environmentObject(categoryViewModel)
             }
             .sheet(isPresented: $showingAddFixedExpense) {
                 AddFixedExpenseView()

@@ -257,17 +257,39 @@ async function generateUniqueInviteCode(): Promise<string> {
  * 클라이언트에서 호출하여 특정 가계부에 새로운 카테고리를 추가합니다.
  */
 export const addCategory = functions.https.onCall(async (data: any, context: any) => {
-  // 1. 인증 확인
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'The function must be called while authenticated.'
-    );
+  console.log('=== FULL DEBUG INFO ===');
+  console.log('typeof data:', typeof data);
+  console.log('data:', data);
+  console.log('data keys:', data ? Object.keys(data) : 'data is null/undefined');
+
+
+  // 혹시 data가 다른 구조일 가능성 체크
+  if (data && data.data) {
+    console.log('Found nested data.data:', data.data);
+    console.log('data.data keys:', Object.keys(data.data));
   }
 
-  // 2. 데이터 유효성 검사
-  const { budgetId, categoryName, parentCategoryId } = data;
-  if (!budgetId || !categoryName) {
+  // context도 체크
+  console.log('context keys:', context ? Object.keys(context) : 'context is null');
+  console.log('===========================');
+
+  // onUserCreate를 참고하여 중첩 데이터 구조 확인
+  let categoryData = data;
+  // 만약 data가 wrapper 객체라면
+  if (data && data.data && typeof data.data === 'object') {
+    categoryData = data.data;
+    console.log('Using nested data.data as categoryData');
+  }
+
+  console.log('Final categoryData:', categoryData);
+  console.log('Final categoryData keys:', categoryData ? Object.keys(categoryData) : 'categoryData is null');
+
+  // budgetId와 categoryName이 데이터에 포함되어 있는지 확인합니다.
+  const { categoryId, categoryName, description, spendingMoney, subCategory, createdAt } = categoryData;
+  if (!categoryId || !categoryName) {
+    console.error('Validation failed: budgetId or categoryName is missing.');
+    console.error('budgetId:', categoryId);
+    console.error('categoryName:', categoryName);
     throw new functions.https.HttpsError(
       'invalid-argument',
       'The function must be called with "budgetId" and "categoryName" arguments.'
@@ -275,29 +297,36 @@ export const addCategory = functions.https.onCall(async (data: any, context: any
   }
 
   try {
-    const budgetRef = db.collection('budgets').doc(budgetId);
-    const categoryCollectionRef = budgetRef.collection('categories');
+    const categoryRef = db.collection('categories').doc(categoryId);
 
-    // 3. 새 카테고리 문서 생성
-    const newCategoryRef = categoryCollectionRef.doc();
+    // 새 카테고리 문서 생성
     const newCategoryData = {
-      id: newCategoryRef.id,
+      id: categoryId,
       name: categoryName,
-      parentCategoryId: parentCategoryId || null, // 상위 카테고리 ID가 없으면 null
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      description: description || "",
+      spendingMoney: spendingMoney || 0,
+      subCategory: subCategory || [],
+      createdAt: createdAt,
+      updatedAt: createdAt,
     };
 
-    await newCategoryRef.set(newCategoryData);
+    await categoryRef.set(newCategoryData);
 
-    console.log(`✅ Successfully added category ${newCategoryRef.id} to budget ${budgetId}`);
+    console.log(`✅ Successfully added category ${categoryId}`);
+    console.log('--- addCategory END ---');
+
 
     return {
       status: 'success',
-      categoryId: newCategoryRef.id,
+      categoryId: categoryId,
       message: 'Category added successfully',
     };
   } catch (error) {
     console.error('❌ Error adding category:', error);
+    console.log('--- addCategory END (with error) ---');
+    if (error instanceof functions.https.HttpsError) {
+        throw error;
+    }
     throw new functions.https.HttpsError(
       'internal',
       'An error occurred while adding the category.'
