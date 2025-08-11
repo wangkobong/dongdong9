@@ -300,8 +300,9 @@ export const addCategory = functions.https.onCall(async (data: any, context: any
     // 새 카테고리 문서 생성
     const newCategoryRef = categoryCollectionRef.doc();
     const newCategoryData = {
-      id: newCategoryRef.id,
-      name: categoryName,
+      categoryId: newCategoryRef.id,
+      budgetId: budgetId, // budgetId 필드 추가
+      categoryName: categoryName,
       description: description || "",
       spendingMoney: spendingMoney || 0,
       subCategory: subCategory || [],

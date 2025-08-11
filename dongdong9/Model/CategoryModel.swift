@@ -14,7 +14,7 @@ struct CategoryModel: Codable {
     let description: String
     let spendingMoney: Int
     let subCategory: [CategoryModel]
-    var createdAt: Int = Int(Date().timeIntervalSince1970)
-    var updatedAt: Int?
+    var createdAt: Date = Date()  // Int → Date로 변경
+    var updatedAt: Date?          // Int → Date로 변경
 }
 

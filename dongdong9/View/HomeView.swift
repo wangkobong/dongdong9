@@ -23,10 +23,7 @@ struct HomeView: View {
                     Text("고정 지출")
                         .font(.headline)
                         .foregroundColor(.gray)
-                    Text(budgetViewModel.totalFixedExpenses, format: .currency(code: "KRW"))
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.red)
+
                 }
 
                 Divider()

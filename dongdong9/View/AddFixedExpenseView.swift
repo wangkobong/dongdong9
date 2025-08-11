@@ -22,7 +22,6 @@ struct AddFixedExpenseView: View {
                 presentationMode.wrappedValue.dismiss()
             }, trailing: Button("저장") {
                 if !name.isEmpty && amount > 0 {
-                    budgetViewModel.addFixedExpense(name: name, amount: amount)
                     presentationMode.wrappedValue.dismiss()
                 }
             })

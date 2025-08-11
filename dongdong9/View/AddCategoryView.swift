@@ -3,12 +3,12 @@ import SwiftUI
 
 struct AddCategoryView: View {
     @Environment(\.presentationMode) var presentationMode
-    @EnvironmentObject var authViewModel: AuthViewModel // AuthViewModel 추가
-    @EnvironmentObject var categoryViewModel: CategoryViewModel
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var budgetViewModel: BudgetViewModel // categoryViewModel을 budgetViewModel로 변경
 
     
     @State private var categoryName: String = ""
-    var parentCategory: ExpenseCategory? // 상위 카테고리를 받을 변수
+    // var parentCategory: ExpenseCategory? // 삭제된 모델을 참조하므로 우선 주석 처리
 
     var body: some View {
         NavigationView {
@@ -17,10 +17,12 @@ struct AddCategoryView: View {
                     TextField("카테고리 이름", text: $categoryName)
                 }
             }
-            .navigationTitle(parentCategory == nil ? "새 대카테고리" : "새 하위 카테고리")
+            .navigationTitle("새 카테고리") // parentCategory가 없으므로 타이틀 간소화
             .navigationBarItems(leading: Button("취소") {
                 presentationMode.wrappedValue.dismiss()
             }, trailing: Button("저장") {
+                print("categoryName: \(categoryName)")
+                print("budgetId: \(authViewModel.budgetId)")
                 if !categoryName.isEmpty, let budgetId = authViewModel.budgetId {
                     var category = CategoryModel(
                                                  categoryName: categoryName,
@@ -31,7 +33,8 @@ struct AddCategoryView: View {
                     
                     // Task 블록으로 비동기 함수 호출
                     Task {
-                        await categoryViewModel.addCategory(category)
+                        // budgetViewModel의 함수를 호출하도록 변경
+                        await budgetViewModel.addCategory(category)
                         // UI 업데이트는 메인 스레드에서
                         await MainActor.run {
                             presentationMode.wrappedValue.dismiss()
@@ -49,8 +52,7 @@ struct AddCategoryView_Previews: PreviewProvider {
         let budgetViewModel = BudgetViewModel(authViewModel: authViewModel)
 
         AddCategoryView()
-            .environmentObject(authViewModel) // Preview를 위해 추가
+            .environmentObject(authViewModel)
             .environmentObject(budgetViewModel)
-            .environmentObject(CategoryViewModel())
     }
 }

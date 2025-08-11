@@ -3,14 +3,11 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var authViewModel: AuthViewModel
     @StateObject private var budgetViewModel: BudgetViewModel
-    @StateObject private var categoryViewModel: CategoryViewModel
 
     init() {
         let authVm = AuthViewModel()
-        let catrgoryVm = CategoryViewModel()
         _authViewModel = StateObject(wrappedValue: authVm)
         _budgetViewModel = StateObject(wrappedValue: BudgetViewModel(authViewModel: authVm))
-        _categoryViewModel = StateObject(wrappedValue: catrgoryVm)
     }
 
     var body: some View {
@@ -33,7 +30,6 @@ struct ContentView: View {
         }
         .environmentObject(authViewModel)
         .environmentObject(budgetViewModel)
-        .environmentObject(categoryViewModel)
     }
 }
 
