@@ -75,8 +75,8 @@ struct IncomeSettingView: View {
             // TODO: 사용자에게 유효하지 않은 값이라는 알림 표시
             return
         }
-        
-        budgetViewModel.updateMyIncome(income: incomeValue)
+        let name = authViewModel.userSession?.displayName ?? ""
+        budgetViewModel.updateMyIncome(income: incomeValue, name: name)
         presentationMode.wrappedValue.dismiss() // 저장 후 화면 닫기
     }
 }

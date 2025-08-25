@@ -159,15 +159,16 @@ class BudgetViewModel: ObservableObject {
         authViewModel.hasBudget = true
     }
 
-    func updateMyIncome(income: Double) {
+    func updateMyIncome(income: Double, name: String) {
         guard let budgetId = budgetId else {
             print("Error: budgetId is nil. Cannot update income.")
             return
         }
 
+        print("updateMyIncome: \(name)")
         Task {
             do {
-                try await FirebaseService.shared.updateUserIncome(budgetId: budgetId, income: income)
+                try await FirebaseService.shared.updateUserIncome(budgetId: budgetId, income: income, name: name)
                 print("Successfully requested income update.")
             } catch {
                 print("Error updating income: \(error.localizedDescription)")

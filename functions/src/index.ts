@@ -1,8 +1,6 @@
 const functions = require('firebase-functions');
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { FieldValue } from 'firebase-admin/firestore';
-
 
 // Firebase Admin SDK 초기화
 admin.initializeApp();
@@ -412,113 +410,6 @@ export const addFixedExpense = functions.https.onCall(async (data: any, context:
   }
 });
 
-// --- 함수 6: 사용자 소득 업데이트 (호출 가능 함수) ---
-/**
- * 클라이언트에서 호출하여 사용자의 소득을 업데이트합니다.
- */
-// export const updateUserIncome = functions.https.onCall(async (data: any, context: any) => {
-//   console.log('=== FULL DEBUG INFO (updateUserIncome) ===');
-//   console.log('Request timestamp:', new Date().toISOString());
-//   console.log('typeof data:', typeof data);
-//   console.log('data:', JSON.stringify(data, null, 2));
-//   console.log('typeof context:', typeof context);
-//   console.log('context keys:', context ? Object.keys(context) : 'context is null');
-//   console.log('context:', JSON.stringify(context, null, 2));
-//   console.log('context.auth:', context.auth);
-//   console.log('context.auth?.uid:', context.auth?.uid);
-//   console.log('context.rawRequest exists:', !!context.rawRequest);
-//   console.log('context.rawRequest?.headers:', context.rawRequest?.headers);
-//   console.log('Authorization header:', context.rawRequest?.headers?.authorization ? 'Present' : 'Missing');
-//   console.log('Content-Type header:', context.rawRequest?.headers?.['content-type']);
-//   console.log('User-Agent header:', context.rawRequest?.headers?.['user-agent']);
-//   console.log('===========================');
-
-//   // 1. 인증 확인 (가장 먼저!)
-//   if (!context.auth || !context.auth.uid) {
-//     console.log('❌ Authentication failed - no auth context or uid');
-//     throw new functions.https.HttpsError(
-//       'unauthenticated',
-//       'The function must be called while authenticated.'
-//     );
-//   }
-
-//   // 2. 실제 사용할 데이터 결정
-//   let actualData = data;
-//   if (data && data.data && typeof data.data === 'object') {
-//     actualData = data.data;
-//     console.log('Using nested data.data as actualData');
-//   }
-
-//   console.log('Final actualData:', actualData);
-//   console.log('Final actualData keys:', actualData ? Object.keys(actualData) : 'actualData is null');
-
-//   // 3. 데이터 유효성 검사
-//   const { budgetId, income } = actualData;
-  
-//   if (!budgetId || typeof budgetId !== 'string') {
-//     console.log('❌ Invalid budgetId:', budgetId, 'type:', typeof budgetId);
-//     throw new functions.https.HttpsError(
-//       'invalid-argument',
-//       'budgetId must be a non-empty string.'
-//     );
-//   }
-
-//   if (typeof income !== 'number' || isNaN(income)) {
-//     console.log('❌ Invalid income:', income, 'type:', typeof income);
-//     throw new functions.https.HttpsError(
-//       'invalid-argument',
-//       'income must be a valid number.'
-//     );
-//   }
-
-//   const uid = context.auth.uid;
-//   console.log(`Processing request: uid=${uid}, budgetId=${budgetId}, income=${income}`);
-
-//   const budgetRef = db.collection('budgets').doc(budgetId);
-
-//   try {
-//     // 4. 예산 문서 존재 확인 (선택사항이지만 권장)
-//     const budgetDoc = await budgetRef.get();
-//     if (!budgetDoc.exists) {
-//       console.log(`❌ Budget document ${budgetId} does not exist`);
-//       throw new functions.https.HttpsError(
-//         'not-found',
-//         'Budget document not found.'
-//       );
-//     }
-
-//     // 5. Firestore 문서 업데이트
-//     await budgetRef.update({
-//       [`incomes.${uid}`]: income,
-//       'updatedAt': admin.firestore.FieldValue.serverTimestamp(),
-//     });
-
-//     console.log(`✅ Successfully updated income for user ${uid} in budget ${budgetId} to ${income}`);
-        
-//     return {
-//       status: 'success',
-//       message: 'Income updated successfully.',
-//       data: {
-//         budgetId,
-//         income,
-//         uid
-//       }
-//     };
-
-//   } catch (error) {
-//     console.error(`❌ Error updating income for user ${uid} in budget ${budgetId}:`, error);
-    
-//     // Firestore 에러인 경우 적절한 HttpsError로 변환
-//     if (error instanceof functions.https.HttpsError) {
-//       throw error; // 이미 HttpsError인 경우 그대로 throw
-//     }
-    
-//     throw new functions.https.HttpsError(
-//       'internal',
-//       'An error occurred while updating the income.'
-//     );
-//   }
-// });
 
 export const updateUserIncome = onCall(async (request) => {
   console.log('=== FULL DEBUG INFO (updateUserIncome) V2 ===');
@@ -555,7 +446,7 @@ export const updateUserIncome = onCall(async (request) => {
   console.log('Final actualData keys:', actualData ? Object.keys(actualData) : 'actualData is null');
 
   // 3. 데이터 유효성 검사
-  const { budgetId, income } = actualData;
+  const { budgetId, income, name } = actualData;
    
   if (!budgetId || typeof budgetId !== 'string') {
     console.log('❌ Invalid budgetId:', budgetId, 'type:', typeof budgetId);
@@ -573,51 +464,51 @@ export const updateUserIncome = onCall(async (request) => {
     );
   }
 
-  const uid = request.auth.uid;
-  console.log(`Processing request: uid=${uid}, budgetId=${budgetId}, income=${income}`);
-
-  const budgetRef = db.collection('budgets').doc(budgetId);
-
-  try {
-    // 4. 예산 문서 존재 확인 (선택사항이지만 권장)
-    const budgetDoc = await budgetRef.get();
-    if (!budgetDoc.exists) {
-      console.log(`❌ Budget document ${budgetId} does not exist`);
-      throw new HttpsError(
-        'not-found',
-        'Budget document not found.'
-      );
-    }
-
-    // 5. Firestore 문서 업데이트
-    await budgetRef.update({
-      [`incomes.${uid}`]: income,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    console.log(`✅ Successfully updated income for user ${uid} in budget ${budgetId} to ${income}`);
-        
-    return {
-      status: 'success',
-      message: 'Income updated successfully.',
-      data: {
-        budgetId,
-        income,
-        uid
-      }
-    };
-
-  } catch (error) {
-    console.error(`❌ Error updating income for user ${uid} in budget ${budgetId}:`, error);
-        
-    // Firestore 에러인 경우 적절한 HttpsError로 변환
-    if (error instanceof HttpsError) {
-      throw error; // 이미 HttpsError인 경우 그대로 throw
-    }
-        
+  if (!name || typeof name !== 'string') {
+    console.log('❌ Invalid name:', name, 'type:', typeof name);
     throw new HttpsError(
-      'internal',
-      'An error occurred while updating the income.'
+      'invalid-argument',
+      'name must be a non-empty string.'
     );
   }
+
+  const uid = request.auth.uid;
+  console.log(`Processing request: uid=${uid}, budgetId=${budgetId}, income=${income}, name=${name}`);
+
+
+  try {
+    const budgetRef = db.collection('budgets').doc(budgetId);
+    const incomesRef = budgetRef.collection('Icomes');
+
+    // 새 고정 지출 문서 생성
+    const newincomesRef = incomesRef.doc();
+    const newincomesRefeData = {
+      newIncomeId: uid, // FixedExpenseModel에 맞게 fixedExpenseId 추가
+      budgetId: budgetId,
+      name: name,
+      amount: income,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await newincomesRef.set(newincomesRefeData)
+
+    console.log(`✅ Successfully added new Income ${newincomesRef.id} to budget ${uid}`);
+
+    return {
+      status: 'success',
+      fixedExpenseId: newincomesRef.id,
+      message: 'Fixed expense added successfully',
+    };
+  } catch (error) {
+    console.error('❌ Error adding fixed expense:', error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError(
+      'internal',
+      'An error occurred while adding the fixed expense.'
+    );
+  }
+
 });

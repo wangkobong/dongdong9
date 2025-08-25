@@ -22,10 +22,11 @@ class AuthViewModel: ObservableObject {
     @Published var budgetId: String?
     @Published var isBudgetStatusChecked = false
     @Published var shouldReauthenticate: Bool = false
-    @Published var incomes: [String: Double] = [:] // 소득 데이터
+    @Published var incomes: [String: Double] = [:]
 
     private let authRepository: AuthRepository
-    private var budgetListener: ListenerRegistration? // Firestore 리스너
+    private var budgetListener: ListenerRegistration?
+    private var incomesListener: ListenerRegistration? // Incomes 리스너 추가
 
     init(authRepository: AuthRepository = AuthRepository()) {
         self.authRepository = authRepository
@@ -34,9 +35,9 @@ class AuthViewModel: ObservableObject {
             self.userSession = user
             if let user = user {
                 self.isBudgetStatusChecked = false
-                self.attachBudgetListener(userId: user.uid)
+                self.attachParentBudgetListener(userId: user.uid)
             } else {
-                self.detachBudgetListener() // 로그아웃 시 리스너 분리
+                self.detachListeners() // 모든 리스너 분리
                 self.hasBudget = false
                 self.budgetId = nil
                 self.incomes = [:]
@@ -49,15 +50,12 @@ class AuthViewModel: ObservableObject {
     }
 
     deinit {
-        detachBudgetListener()
+        detachListeners()
     }
 
-    func resetReauthenticationFlag() {
-        self.shouldReauthenticate = false
-    }
-
-    func attachBudgetListener(userId: String) {
-        detachBudgetListener() // 기존 리스너가 있다면 중복 방지를 위해 분리
+    // MARK: - Listener Management
+    private func attachParentBudgetListener(userId: String) {
+        detachListeners()
         let db = Firestore.firestore()
         let query = db.collection("budgets").whereField("userIds", arrayContains: userId)
 
@@ -65,35 +63,69 @@ class AuthViewModel: ObservableObject {
             guard let self = self else { return }
             if let error = error {
                 print("Error listening for budget documents: \(error)")
+                self.detachListeners()
                 self.hasBudget = false
-                self.budgetId = nil
-                self.incomes = [:]
                 self.isBudgetStatusChecked = true
                 return
             }
 
             if let document = querySnapshot?.documents.first {
+                let budgetId = document.documentID
                 self.hasBudget = true
-                self.budgetId = document.documentID
-                if let incomesData = document.data()["incomes"] as? [String: Double] {
-                    self.incomes = incomesData
-                } else {
-                    self.incomes = [:]
-                }
+                self.budgetId = budgetId
+                self.attachIncomesListener(budgetId: budgetId) // budgetId로 incomes 리스너 연결
             } else {
-                self.hasBudget = false
-                self.budgetId = nil
-                self.incomes = [:]
+                self.detachListeners(clearBudgetState: true) // 하위 리스너도 모두 정리
+                self.isBudgetStatusChecked = true
             }
-            self.isBudgetStatusChecked = true
         }
     }
 
-    private func detachBudgetListener() {
-        budgetListener?.remove()
-        budgetListener = nil
+    private func attachIncomesListener(budgetId: String) {
+        incomesListener?.remove() // 기존 incomes 리스너가 있다면 제거
+        let db = Firestore.firestore()
+        let query = db.collection("budgets").document(budgetId).collection("incomes")
+
+        self.incomesListener = query.addSnapshotListener { [weak self] (querySnapshot, error) in
+            guard let self = self else { return }
+            if let error = error {
+                print("Error listening for incomes sub-collection: \(error)")
+                self.incomes = [:]
+                self.isBudgetStatusChecked = true // 에러 발생 시에도 상태는 확인된 것으로 간주
+                return
+            }
+
+            var newIncomes: [String: Double] = [:]
+            querySnapshot?.documents.forEach {
+                document in
+                // 문서 ID가 userId임
+                let userId = document.documentID
+                if let amount = document.data()["amount"] as? Double {
+                    newIncomes[userId] = amount
+                }
+            }
+            self.incomes = newIncomes
+            self.isBudgetStatusChecked = true // 최종적으로 데이터 로드 완료
+        }
     }
 
+    private func detachListeners(clearBudgetState: Bool = true) {
+        budgetListener?.remove()
+        budgetListener = nil
+        incomesListener?.remove()
+        incomesListener = nil
+        if clearBudgetState {
+            self.hasBudget = false
+            self.budgetId = nil
+            self.incomes = [:]
+        }
+    }
+    
+    func resetReauthenticationFlag() {
+        self.shouldReauthenticate = false
+    }
+
+    // ... (signInWithGoogle, deleteAccount 등 나머지 코드는 동일) ...
     @MainActor
     func signInWithGoogle() {
         self.isLoading = true
@@ -263,14 +295,11 @@ class AuthViewModel: ObservableObject {
     
 
     func signOut() async {
-        detachBudgetListener()
+        detachListeners()
         do {
             try Auth.auth().signOut()
             GIDSignIn.sharedInstance.signOut()
             print("Successfully signed out.")
-            self.hasBudget = false
-            self.budgetId = nil
-            self.incomes = [:]
             self.isBudgetStatusChecked = false
         } catch let signOutError as NSError {
             print("Error signing out: %@", signOutError)

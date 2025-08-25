@@ -171,7 +171,7 @@ class FirebaseService {
        - income: 새로운 소득 금액
      - Throws: 함수 호출 실패 또는 서버로부터 에러 응답을 받을 경우 에러를 던집니다.
      */
-    func updateUserIncome(budgetId: String, income: Double) async throws {
+    func updateUserIncome(budgetId: String, income: Double, name: String) async throws {
             // 1. 사용자 인증 상태 확인
             guard let currentUser = Auth.auth().currentUser else {
                 print("Error: User is not authenticated. Cannot update income.")
@@ -192,7 +192,8 @@ class FirebaseService {
 
             let data: [String: Any] = [
                 "budgetId": budgetId,
-                "income": income
+                "income": income,
+                "name": name
             ]
             
             print("Calling function with data: \(data)")
