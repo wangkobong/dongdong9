@@ -22,11 +22,13 @@ class AuthViewModel: ObservableObject {
     @Published var budgetId: String?
     @Published var isBudgetStatusChecked = false
     @Published var shouldReauthenticate: Bool = false
-    @Published var incomes: [String: Double] = [:]
+    @Published var incomeEntries: [IncomeModel] = [] // 수입 데이터 모델
+    @Published var fixedExpenseEntries: [FixedExpenseModel] = [] // 고정지출 데이터 모델
 
     private let authRepository: AuthRepository
     private var budgetListener: ListenerRegistration?
-    private var incomesListener: ListenerRegistration? // Incomes 리스너 추가
+    private var incomesListener: ListenerRegistration?
+    private var fixedExpensesListener: ListenerRegistration?
 
     init(authRepository: AuthRepository = AuthRepository()) {
         self.authRepository = authRepository
@@ -37,10 +39,7 @@ class AuthViewModel: ObservableObject {
                 self.isBudgetStatusChecked = false
                 self.attachParentBudgetListener(userId: user.uid)
             } else {
-                self.detachListeners() // 모든 리스너 분리
-                self.hasBudget = false
-                self.budgetId = nil
-                self.incomes = [:]
+                self.detachListeners()
                 self.isBudgetStatusChecked = true
             }
             if !self.isAuthCheckComplete {
@@ -64,7 +63,6 @@ class AuthViewModel: ObservableObject {
             if let error = error {
                 print("Error listening for budget documents: \(error)")
                 self.detachListeners()
-                self.hasBudget = false
                 self.isBudgetStatusChecked = true
                 return
             }
@@ -73,39 +71,74 @@ class AuthViewModel: ObservableObject {
                 let budgetId = document.documentID
                 self.hasBudget = true
                 self.budgetId = budgetId
-                self.attachIncomesListener(budgetId: budgetId) // budgetId로 incomes 리스너 연결
+                // 가계부 ID를 찾은 후, 하위 컬렉션 리스너들을 연결합니다.
+                self.attachSubCollectionListeners(budgetId: budgetId)
             } else {
-                self.detachListeners(clearBudgetState: true) // 하위 리스너도 모두 정리
+                self.detachListeners(clearBudgetState: true)
                 self.isBudgetStatusChecked = true
             }
         }
     }
+    
+    private func attachSubCollectionListeners(budgetId: String) {
+        attachIncomesListener(budgetId: budgetId)
+        attachFixedExpensesListener(budgetId: budgetId)
+    }
 
     private func attachIncomesListener(budgetId: String) {
-        incomesListener?.remove() // 기존 incomes 리스너가 있다면 제거
+        incomesListener?.remove()
         let db = Firestore.firestore()
         let query = db.collection("budgets").document(budgetId).collection("incomes")
+                       .order(by: "createdAt", descending: true)
 
         self.incomesListener = query.addSnapshotListener { [weak self] (querySnapshot, error) in
             guard let self = self else { return }
+            print("[DEBUG] Incomes listener fired.") // 1. 리스너 실행 확인
+
             if let error = error {
-                print("Error listening for incomes sub-collection: \(error)")
-                self.incomes = [:]
-                self.isBudgetStatusChecked = true // 에러 발생 시에도 상태는 확인된 것으로 간주
+                print("[DEBUG] Error listening for incomes sub-collection: \(error)")
+                self.incomeEntries = []
+                self.isBudgetStatusChecked = true
                 return
             }
 
-            var newIncomes: [String: Double] = [:]
-            querySnapshot?.documents.forEach {
-                document in
-                // 문서 ID가 userId임
-                let userId = document.documentID
-                if let amount = document.data()["amount"] as? Double {
-                    newIncomes[userId] = amount
+            guard let documents = querySnapshot?.documents else {
+                print("[DEBUG] Query snapshot for incomes is nil.")
+                self.incomeEntries = []
+                self.isBudgetStatusChecked = true
+                return
+            }
+
+            print("[DEBUG] Found \(documents.count) income documents.") // 2. 문서 개수 확인
+
+            self.incomeEntries = documents.compactMap { document -> IncomeModel? in
+                do {
+                    let income = try document.data(as: IncomeModel.self)
+                    print("[DEBUG] Successfully decoded income: \(income.id ?? "N/A")") // 3. 개별 문서 디코딩 성공 확인
+                    return income
+                } catch {
+                    print("[DEBUG] Error decoding income document \(document.documentID): \(error)") // 4. 디코딩 실패 시 오류 확인
+                    return nil
                 }
             }
-            self.incomes = newIncomes
-            self.isBudgetStatusChecked = true // 최종적으로 데이터 로드 완료
+            self.isBudgetStatusChecked = true
+        }
+    }
+    
+    private func attachFixedExpensesListener(budgetId: String) {
+        fixedExpensesListener?.remove()
+        let db = Firestore.firestore()
+        let query = db.collection("budgets").document(budgetId).collection("fixedExpenses")
+                       .order(by: "createdAt", descending: false)
+
+        self.fixedExpensesListener = query.addSnapshotListener { [weak self] (querySnapshot, error) in
+            guard let self = self else { return }
+            if let error = error {
+                print("Error listening for fixed expenses sub-collection: \(error)")
+                self.fixedExpenseEntries = []
+                return
+            }
+            self.fixedExpenseEntries = querySnapshot?.documents.compactMap { try? $0.data(as: FixedExpenseModel.self) } ?? []
         }
     }
 
@@ -114,10 +147,13 @@ class AuthViewModel: ObservableObject {
         budgetListener = nil
         incomesListener?.remove()
         incomesListener = nil
+        fixedExpensesListener?.remove()
+        fixedExpensesListener = nil
         if clearBudgetState {
             self.hasBudget = false
             self.budgetId = nil
-            self.incomes = [:]
+            self.incomeEntries = []
+            self.fixedExpenseEntries = []
         }
     }
     

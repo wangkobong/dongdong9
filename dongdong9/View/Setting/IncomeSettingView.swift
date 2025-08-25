@@ -61,9 +61,14 @@ struct IncomeSettingView: View {
 
     private func loadCurrentUserIncome() {
         guard let userId = authViewModel.userSession?.uid else { return }
-        let currentUserIncome = budgetViewModel.incomes[userId] ?? 0
-        if currentUserIncome > 0 {
-            incomeString = currencyFormatter.string(from: NSNumber(value: currentUserIncome)) ?? ""
+        
+        // incomeEntries 배열에서 현재 사용자의 가장 최신 소득 항목을 찾습니다.
+        // 배열은 AuthViewModel에서 이미 최신순으로 정렬되어 있습니다.
+        if let currentUserIncome = budgetViewModel.incomeEntries.first(where: { $0.newIncomeId == userId }) {
+            let amount = currentUserIncome.amount
+            if amount > 0 {
+                incomeString = currencyFormatter.string(from: NSNumber(value: amount)) ?? ""
+            }
         }
     }
 

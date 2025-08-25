@@ -478,7 +478,7 @@ export const updateUserIncome = onCall(async (request) => {
 
   try {
     const budgetRef = db.collection('budgets').doc(budgetId);
-    const incomesRef = budgetRef.collection('Icomes');
+    const incomesRef = budgetRef.collection('incomes');
 
     // 새 고정 지출 문서 생성
     const newincomesRef = incomesRef.doc();

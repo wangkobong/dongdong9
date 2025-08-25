@@ -5,14 +5,14 @@ import FirebaseFirestore
 
 class BudgetViewModel: ObservableObject {
     // MARK: - Published Properties
-    @Published var incomes: [String: Double] = [:]
-    @Published var categories: [CategoryModel] = []
+    @Published var incomeEntries: [IncomeModel] = []
     @Published var fixedExpenses: [FixedExpenseModel] = []
+    @Published var categories: [CategoryModel] = []
     @Published var budgetId: String? {
         didSet {
             Task {
+                // AuthViewModel에서 이미 데이터를 가져오므로, fetchCategories만 호출합니다.
                 await fetchCategories()
-                await fetchFixedExpenses()
             }
         }
     }
@@ -20,33 +20,48 @@ class BudgetViewModel: ObservableObject {
     private var db = Firestore.firestore()
     private var cancellables = Set<AnyCancellable>()
     private var categoryListener: ListenerRegistration?
-    private var fixedExpenseListener: ListenerRegistration?
 
     init(authViewModel: AuthViewModel) {
-        // AuthViewModel로부터 budgetId와 incomes를 구독합니다.
+        // AuthViewModel로부터 데이터 스트림을 구독합니다.
         authViewModel.$budgetId
             .receive(on: DispatchQueue.main)
             .assign(to: \.budgetId, on: self)
             .store(in: &cancellables)
 
-        authViewModel.$incomes
+        authViewModel.$incomeEntries
             .receive(on: DispatchQueue.main)
-            .assign(to: \.incomes, on: self)
+            .assign(to: \.incomeEntries, on: self)
+            .store(in: &cancellables)
+            
+        authViewModel.$fixedExpenseEntries
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.fixedExpenses, on: self)
             .store(in: &cancellables)
     }
     
     deinit {
         categoryListener?.remove()
-        fixedExpenseListener?.remove()
     }
 
     // MARK: - Computed Properties
     var totalIncome: Double {
-        incomes.values.reduce(0, +)
+        // 각 사용자의 가장 최신 소득만 합산합니다.
+        // incomeEntries는 AuthViewModel에서 이미 최신순으로 정렬되어 있습니다.
+        var latestIncomes: [String: Double] = [:]
+        for entry in incomeEntries {
+            if latestIncomes[entry.newIncomeId] == nil {
+                latestIncomes[entry.newIncomeId] = entry.amount
+            }
+        }
+        return latestIncomes.values.reduce(0, +)
+    }
+    
+    var totalFixedExpenses: Double {
+        fixedExpenses.reduce(0) { $0 + $1.amount }
     }
 
     var netBudget: Double {
-        totalIncome // Simplified
+        totalIncome - totalFixedExpenses
     }
 
     // MARK: - Methods
@@ -118,40 +133,7 @@ class BudgetViewModel: ObservableObject {
         }
     }
 
-    @MainActor
-    func fetchFixedExpenses() {
-        fixedExpenseListener?.remove()
-
-        guard let budgetId = budgetId, !budgetId.isEmpty else {
-            self.fixedExpenses = []
-            return
-        }
-
-        fixedExpenseListener = db.collection("budgets").document(budgetId).collection("fixedExpenses")
-            .order(by: "createdAt", descending: false)
-            .addSnapshotListener { [weak self] querySnapshot, error in
-                guard let self = self else { return }
-
-                if let error = error {
-                    print("Error fetching fixed expenses: \(error.localizedDescription)")
-                    return
-                }
-
-                guard let documents = querySnapshot?.documents else {
-                    print("No fixed expense documents found")
-                    return
-                }
-
-                self.fixedExpenses = documents.compactMap { document -> FixedExpenseModel? in
-                    do {
-                        return try document.data(as: FixedExpenseModel.self)
-                    } catch {
-                        print("Error decoding fixed expense document \(document.documentID): \(error)")
-                        return nil
-                    }
-                }
-            }
-    }
+    // fetchFixedExpenses()는 이제 AuthViewModel에서 처리하므로 삭제합니다.
 
     func joinBudgetWithInviteCode(inviteCode: String, userId: String, authViewModel: AuthViewModel) {
         // TODO: 초대 코드로 가계부에 참여하는 Firestore 로직 구현
@@ -165,7 +147,6 @@ class BudgetViewModel: ObservableObject {
             return
         }
 
-        print("updateMyIncome: \(name)")
         Task {
             do {
                 try await FirebaseService.shared.updateUserIncome(budgetId: budgetId, income: income, name: name)
