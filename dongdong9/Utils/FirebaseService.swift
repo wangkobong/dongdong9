@@ -9,6 +9,7 @@ import FirebaseFirestore
 enum FirebaseServiceError: Error {
     case invalidResponse // 서버로부터 받은 응답이 예상과 다를 때
     case dataDecodingError // 데이터 디코딩 실패
+    case notAuthenticated // 사용자가 인증되지 않았을 때
 }
 
 /**
@@ -171,26 +172,59 @@ class FirebaseService {
      - Throws: 함수 호출 실패 또는 서버로부터 에러 응답을 받을 경우 에러를 던집니다.
      */
     func updateUserIncome(budgetId: String, income: Double) async throws {
-        let data: [String: Any] = [
-            "budgetId": budgetId,
-            "income": income
-        ]
-
-        do {
-            let result = try await functions.httpsCallable("updateUserIncome").call(data)
-            
-            guard let resultData = result.data as? [String: Any],
-                  let status = resultData["status"] as? String, status == "success" else {
-                print("Invalid response from updateUserIncome function")
-                throw FirebaseServiceError.invalidResponse
+            // 1. 사용자 인증 상태 확인
+            guard let currentUser = Auth.auth().currentUser else {
+                print("Error: User is not authenticated. Cannot update income.")
+                throw FirebaseServiceError.notAuthenticated
             }
             
-            print("Successfully updated user income.")
+            print("Current user UID: \(currentUser.uid)")
+            print("User email: \(currentUser.email ?? "No email")")
             
-        } catch {
-            print("FirebaseService Error - updateUserIncome: \(error.localizedDescription)")
-            throw error
+            // 2. 토큰 강제 갱신 및 확인
+            do {
+                let token = try await currentUser.getIDToken(forcingRefresh: true)
+                print("✅ Token refreshed successfully. Token length: \(token.count)")
+            } catch {
+                print("❌ Failed to refresh token: \(error.localizedDescription)")
+                throw FirebaseServiceError.notAuthenticated
+            }
+
+            let data: [String: Any] = [
+                "budgetId": budgetId,
+                "income": income
+            ]
+            
+            print("Calling function with data: \(data)")
+
+            do {
+                // 3. Functions 호출 - 인증된 사용자로 호출됨
+                let result = try await functions.httpsCallable("updateUserIncome").call(data)
+                
+                guard let resultData = result.data as? [String: Any],
+                      let status = resultData["status"] as? String, status == "success" else {
+                    print("Invalid response from updateUserIncome function")
+                    print("Response data: \(result.data)")
+                    throw FirebaseServiceError.invalidResponse
+                }
+                
+                print("Successfully updated user income.")
+                
+            } catch let error as NSError {
+                print("FirebaseService Error - updateUserIncome: \(error.localizedDescription)")
+                
+                // 상세 에러 정보 출력
+                print("Error code: \(error.code)")
+                print("Error domain: \(error.domain)")
+                if let details = error.userInfo["details"] {
+                    print("Error details: \(details)")
+                }
+                if let message = error.userInfo["message"] {
+                    print("Error message: \(message)")
+                }
+                
+                throw error
+            }
         }
-    }
 }
 
