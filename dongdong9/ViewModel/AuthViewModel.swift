@@ -21,47 +21,77 @@ class AuthViewModel: ObservableObject {
     @Published var hasBudget = false
     @Published var budgetId: String?
     @Published var isBudgetStatusChecked = false
-    @Published var shouldReauthenticate: Bool = false // 재인증 필요 여부
+    @Published var shouldReauthenticate: Bool = false
+    @Published var incomes: [String: Double] = [:] // 소득 데이터
+
     private let authRepository: AuthRepository
+    private var budgetListener: ListenerRegistration? // Firestore 리스너
 
     init(authRepository: AuthRepository = AuthRepository()) {
         self.authRepository = authRepository
         Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            self?.userSession = user
+            guard let self = self else { return }
+            self.userSession = user
             if let user = user {
-                self?.checkBudgetStatus(userId: user.uid)
+                self.isBudgetStatusChecked = false
+                self.attachBudgetListener(userId: user.uid)
             } else {
-                self?.isBudgetStatusChecked = true
+                self.detachBudgetListener() // 로그아웃 시 리스너 분리
+                self.hasBudget = false
+                self.budgetId = nil
+                self.incomes = [:]
+                self.isBudgetStatusChecked = true
             }
-            if let self = self, !self.isAuthCheckComplete {
+            if !self.isAuthCheckComplete {
                 self.isAuthCheckComplete = true
             }
         }
+    }
+
+    deinit {
+        detachBudgetListener()
     }
 
     func resetReauthenticationFlag() {
         self.shouldReauthenticate = false
     }
 
-    func checkBudgetStatus(userId: String) {
+    func attachBudgetListener(userId: String) {
+        detachBudgetListener() // 기존 리스너가 있다면 중복 방지를 위해 분리
         let db = Firestore.firestore()
-        db.collection("budgets").whereField("userIds", arrayContains: userId).getDocuments { [weak self] (querySnapshot, error) in
+        let query = db.collection("budgets").whereField("userIds", arrayContains: userId)
+
+        self.budgetListener = query.addSnapshotListener { [weak self] (querySnapshot, error) in
             guard let self = self else { return }
             if let error = error {
-                print("Error getting documents: \(error)")
+                print("Error listening for budget documents: \(error)")
                 self.hasBudget = false
                 self.budgetId = nil
-            } else {
-                if let document = querySnapshot?.documents.first {
-                    self.hasBudget = true
-                    self.budgetId = document.documentID
-                } else {
-                    self.hasBudget = false
-                    self.budgetId = nil
-                }
+                self.incomes = [:]
+                self.isBudgetStatusChecked = true
+                return
             }
-            self.isBudgetStatusChecked = true // 가계부 상태 확인 완료
+
+            if let document = querySnapshot?.documents.first {
+                self.hasBudget = true
+                self.budgetId = document.documentID
+                if let incomesData = document.data()["incomes"] as? [String: Double] {
+                    self.incomes = incomesData
+                } else {
+                    self.incomes = [:]
+                }
+            } else {
+                self.hasBudget = false
+                self.budgetId = nil
+                self.incomes = [:]
+            }
+            self.isBudgetStatusChecked = true
         }
+    }
+
+    private func detachBudgetListener() {
+        budgetListener?.remove()
+        budgetListener = nil
     }
 
     @MainActor
@@ -117,12 +147,6 @@ class AuthViewModel: ObservableObject {
                 }
                 
                 print("🎉 Firebase Google 로그인 성공!")
-                    print("UID: \(firebaseUser.uid)")
-                    print("Email: \(firebaseUser.email ?? "없음")")
-                    print("Display Name: \(firebaseUser.displayName ?? "없음")")
-                    print("Photo URL: \(firebaseUser.photoURL?.absoluteString ?? "없음")")
-                    print("Is Email Verified: \(firebaseUser.isEmailVerified)")
-                    print("Provider Data: \(firebaseUser.providerData.map { $0.providerID })")
                 Task {
                     try await FirebaseService.shared.createUser(user: firebaseUser)
                 }
@@ -239,10 +263,15 @@ class AuthViewModel: ObservableObject {
     
 
     func signOut() async {
+        detachBudgetListener()
         do {
             try Auth.auth().signOut()
             GIDSignIn.sharedInstance.signOut()
             print("Successfully signed out.")
+            self.hasBudget = false
+            self.budgetId = nil
+            self.incomes = [:]
+            self.isBudgetStatusChecked = false
         } catch let signOutError as NSError {
             print("Error signing out: %@", signOutError)
             self.errorMessage = "로그아웃에 실패했습니다."
@@ -292,6 +321,7 @@ class AuthViewModel: ObservableObject {
             // 모든 삭제 성공 후 로그아웃 처리
             await signOut()
             self.errorMessage = nil // 성공 시 에러 메시지 초기화
+            self.shouldReauthenticate = false // 성공 시 플래그 리셋
 
         } catch let error as NSError {
             print("Error deleting account: \(error.localizedDescription)")
@@ -302,7 +332,8 @@ class AuthViewModel: ObservableObject {
                 await signOut()
             } else {
                 self.errorMessage = "회원 탈퇴 중 오류가 발생했습니다: \(error.localizedDescription)"
-            }
+                self.shouldReauthenticate = false // 그 외 에러 시 플래그 리셋
+            } 
         }
     }
     
@@ -330,61 +361,3 @@ class AuthViewModel: ObservableObject {
         }
     }
 }
-
-//extension AuthViewModel: ASAuthorizationControllerDelegate {
-//    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
-//        self.isLoading = false
-//        if let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential {
-//            guard let appleIDToken = appleIDCredential.identityToken else {
-//                print("Unable to fetch identity token")
-//                self.errorMessage = "Apple 로그인 토큰을 가져오는데 실패했습니다."
-//                return
-//            }
-//            guard let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
-//                print("Unable to serialize token string from data.")
-//                self.errorMessage = "Apple 로그인 토큰을 변환하는데 실패했습니다."
-//                return
-//            }
-//
-//            let firebaseCredential = OAuthProvider.credential(withProviderID: "apple.com",
-//                                                                idToken: idTokenString,
-//                                                                rawNonce: nil) // Nonce is not strictly required for Firebase if not using custom backend
-//
-//            Auth.auth().signIn(with: firebaseCredential) { [weak self] authResult, error in
-//                guard let self = self else { return }
-//                self.isLoading = false // Set isLoading to false after Firebase sign-in attempt
-//                if let error = error {
-//                    print("Firebase Apple 로그인 실패: \(error.localizedDescription)")
-//                    self.errorMessage = "Firebase Apple 로그인에 실패했습니다."
-//                    return
-//                }
-//                print("🎉 Firebase Apple 로그인 성공! UID: \(authResult?.user.uid ?? "")")
-//                self.checkUserInfo()
-//            }
-//        }
-//    }
-//
-//    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-//        self.isLoading = false
-//        print("Apple Sign-In error: \(error.localizedDescription)")
-//        if let authorizationError = error as? ASAuthorizationError {
-//            if authorizationError.code == .canceled {
-//                self.errorMessage = "Apple 로그인이 취소되었습니다."
-//            } else {
-//                self.errorMessage = "Apple 로그인 중 오류가 발생했습니다: \(authorizationError.localizedDescription)"
-//            }
-//        } else {
-//            self.errorMessage = "알 수 없는 Apple 로그인 오류가 발생했습니다."
-//        }
-//    }
-//}
-
-//extension AuthViewModel: ASAuthorizationControllerPresentationContextProviding {
-//    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-//        return UIApplication.shared.connectedScenes
-//            .filter({$0.activationState == .foregroundActive})
-//            .map({$0 as? UIWindowScene})
-//            .compactMap({$0})
-//            .first?.windows.first ?? UIWindow()
-//    }
-//}

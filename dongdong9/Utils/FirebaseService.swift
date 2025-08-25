@@ -162,4 +162,35 @@ class FirebaseService {
             throw error
         }
     }
+
+    /**
+     서버에 배포된 'updateUserIncome' 함수를 호출하여 사용자의 소득을 업데이트합니다.
+     - Parameters:
+       - budgetId: 소득을 업데이트할 가계부의 ID
+       - income: 새로운 소득 금액
+     - Throws: 함수 호출 실패 또는 서버로부터 에러 응답을 받을 경우 에러를 던집니다.
+     */
+    func updateUserIncome(budgetId: String, income: Double) async throws {
+        let data: [String: Any] = [
+            "budgetId": budgetId,
+            "income": income
+        ]
+
+        do {
+            let result = try await functions.httpsCallable("updateUserIncome").call(data)
+            
+            guard let resultData = result.data as? [String: Any],
+                  let status = resultData["status"] as? String, status == "success" else {
+                print("Invalid response from updateUserIncome function")
+                throw FirebaseServiceError.invalidResponse
+            }
+            
+            print("Successfully updated user income.")
+            
+        } catch {
+            print("FirebaseService Error - updateUserIncome: \(error.localizedDescription)")
+            throw error
+        }
+    }
 }
+

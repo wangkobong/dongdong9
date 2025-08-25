@@ -1,4 +1,3 @@
-
 const functions = require('firebase-functions');
 import * as admin from "firebase-admin";
 
@@ -406,6 +405,147 @@ export const addFixedExpense = functions.https.onCall(async (data: any, context:
     throw new functions.https.HttpsError(
       'internal',
       'An error occurred while adding the fixed expense.'
+    );
+  }
+});
+
+// --- 함수 5: 수입 추가 (호출 가능 함수) ---
+/**
+ * 클라이언트에서 호출하여 특정 가계부에 새로운 수입을 추가합니다.
+ */
+export const addIncome = functions.https.onCall(async (data: any, context: any) => {
+  console.log('=== FULL DEBUG INFO (addIncome) ===');
+  console.log('typeof data:', typeof data);
+  console.log('data:', data);
+  console.log('data keys:', data ? Object.keys(data) : 'data is null/undefined');
+
+  // 혹시 data가 다른 구조일 가능성 체크 (addCategory 참고)
+
+  // context도 체크
+  console.log('context keys:', context ? Object.keys(context) : 'context is null');
+  console.log('===========================');
+
+  let incomeData = data;
+  // 만약 data가 wrapper 객체라면 (addCategory 참고)
+  if (data && data.data && typeof data.data === 'object') {
+    incomeData = data.data;
+    console.log('Using nested data.data as incomeData');
+  }
+
+  console.log('Final incomeData:', incomeData);
+  console.log('Final incomeData keys:', incomeData ? Object.keys(incomeData) : 'incomeData is null');
+
+  // 데이터 유효성 검사
+  const { budgetId, name, amount } = incomeData; // Use incomeData here
+  if (!budgetId || !name || amount === undefined) { 
+    
+    {
+      console.error('Validation failed: budgetId, name, or amount is missing.');
+      console.error('budgetId:', budgetId);
+      console.error('name:', name);
+      console.error('amount:', amount);
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'The function must be called with "budgetId", "name", and "amount" arguments.'
+      );
+    }
+  }
+
+  try {
+    const budgetRef = db.collection('budgets').doc(budgetId);
+    const incomeCollectionRef = budgetRef.collection('incomes');
+
+    // 새 수입 문서 생성
+    const newIncomeRef = incomeCollectionRef.doc();
+    const newIncomeData = {
+      incomeId: newIncomeRef.id, // FixedExpenseModel에 맞게 fixedExpenseId 추가
+      budgetId: budgetId, 
+      name: name,
+      amount: amount,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await newIncomeRef.set(newIncomeData);
+
+    console.log(`✅ Successfully added income ${newIncomeRef.id} to budget ${budgetId}`);   
+
+  } catch (error) {
+    console.error('❌ Error adding income:', error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError(
+      'internal',
+      'An error occurred while adding the income.'
+    );
+  }
+});
+
+// --- 함수 6: 사용자 소득 업데이트 (호출 가능 함수) ---
+/**
+ * 클라이언트에서 호출하여 사용자의 소득을 업데이트합니다.
+ */
+export const updateUserIncome = functions.https.onCall(async (data: any, context: any) => {
+
+  console.log('=== FULL DEBUG INFO (updateUserIncome) ===');
+  console.log('typeof data:', typeof data);
+  console.log('data:', data);
+  console.log('data keys:', data ? Object.keys(data) : 'data is null/undefined');
+
+  // 혹시 data가 다른 구조일 가능성 체크 (addCategory 참고)
+  if (data && data.data) {
+    console.log('Found nested data.data:', data.data);
+    console.log('data.data keys:', Object.keys(data.data));
+  }
+
+  // context도 체크
+  console.log('context keys:', context ? Object.keys(context) : 'context is null');
+  console.log('===========================');
+
+  let incomeData = data;
+  // 만약 data가 wrapper 객체라면 (addCategory 참고)
+  if (data && data.data && typeof data.data === 'object') {
+    incomeData = data.data;
+    console.log('Using nested data.data as incomeData');
+  }
+
+  console.log('Final incomeData:', incomeData);
+  console.log('Final incomeData keys:', incomeData ? Object.keys(incomeData) : 'incomeData is null');
+
+  // 2. 데이터 유효성 검사
+  const { budgetId, income } = data;
+  if (!budgetId || typeof income !== 'number') {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'The function must be called with "budgetId" (string) and "income" (number) arguments.'
+    );
+  }
+
+  const uid = context.auth.uid;
+  const budgetRef = db.collection('budgets').doc(budgetId);
+
+  try {
+    // 3. Firestore 문서 업데이트
+    // dot notation을 사용하여 특정 사용자의 소득만 업데이트합니다.
+    // 필드가 존재하지 않으면 자동으로 생성됩니다.
+    await budgetRef.update({
+      [`incomes.${uid}`]: income,
+      'updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log(`✅ Successfully updated income for user ${uid} in budget ${budgetId} to ${income}`);
+    
+    return {
+      status: 'success',
+      message: 'Income updated successfully.',
+    };
+
+  } catch (error) {
+    console.error(`❌ Error updating income for user ${uid} in budget ${budgetId}:`, error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'An error occurred while updating the income.'
     );
   }
 });

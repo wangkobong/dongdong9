@@ -12,10 +12,9 @@ struct HomeView: View {
                     Text("총수입")
                         .font(.headline)
                         .foregroundColor(.gray)
-                    TextField("총수입 입력", value: $budgetViewModel.totalIncome, format: .currency(code: "KRW"))
+                    Text(budgetViewModel.totalIncome, format: .currency(code: "KRW"))
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .keyboardType(.decimalPad)
                 }
 
                 // 고정 지출
